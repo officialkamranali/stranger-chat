@@ -8,20 +8,26 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
     body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100vh; }
-    header { padding: 12px; background: #1f1f1f; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
-    #status { font-size: 13px; color: #aaa; }
+    header { padding: 10px 14px; background: #1f1f1f; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+    #status { font-size: 12px; color: #aaa; margin-top: 3px; }
+    
+    #connect-bar { padding: 10px; background: #262626; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid #333; }
+    #partnerIdInput { flex: 1; min-width: 150px; padding: 8px 12px; border-radius: 8px; border: 1px solid #444; background: #1a1a1a; color: #fff; font-size: 13px; }
+    
     #video-container { display: none; height: 35vh; background: #000; position: relative; }
     video { width: 100%; height: 100%; object-fit: cover; }
-    #localVideo { width: 90px; height: 120px; position: absolute; right: 10px; bottom: 10px; border: 2px solid #fff; border-radius: 8px; z-index: 10; }
+    #localVideo { width: 90px; height: 120px; position: absolute; right: 10px; bottom: 10px; border: 2px solid #007aff; border-radius: 8px; z-index: 10; }
+    
     #chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .msg { padding: 8px 12px; border-radius: 8px; max-width: 75%; font-size: 14px; word-break: break-all; }
+    .msg { padding: 8px 12px; border-radius: 8px; max-width: 75%; font-size: 14px; word-break: break-word; }
     .me { background: #007aff; align-self: flex-end; }
     .stranger { background: #2c2c2e; align-self: flex-start; }
-    .system { background: transparent; color: #888; align-self: center; font-size: 12px; }
+    .system { background: transparent; color: #888; align-self: center; font-size: 12px; text-align: center; }
     .msg img { max-width: 100%; border-radius: 6px; margin-top: 5px; }
+    
     #controls { padding: 10px; background: #1f1f1f; display: flex; gap: 8px; align-items: center; }
-    input[type="text"] { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #333; background: #2c2c2e; color: #fff; outline: none; }
-    button { padding: 10px 14px; border: none; border-radius: 20px; background: #007aff; color: #fff; font-weight: bold; cursor: pointer; }
+    #msgInput { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #333; background: #2c2c2e; color: #fff; outline: none; }
+    button { padding: 8px 14px; border: none; border-radius: 8px; background: #007aff; color: #fff; font-weight: bold; cursor: pointer; font-size: 13px; }
     button.secondary { background: #3a3a3c; }
     #fileInput { display: none; }
   </style>
@@ -31,13 +37,19 @@
   <header>
     <div>
       <strong>Stranger Chat</strong>
-      <div id="status">Connecting to network...</div>
+      <div id="status">Network se jud rahe hain...</div>
     </div>
-    <div>
+    <div style="display:flex; gap:6px;">
+      <button class="secondary" onclick="copyMyId()">📋 Copy ID</button>
       <button id="videoBtn" class="secondary" onclick="requestVideoCall()">📹 Video</button>
       <button class="secondary" onclick="location.reload()">Next</button>
     </div>
   </header>
+
+  <div id="connect-bar">
+    <input type="text" id="partnerIdInput" placeholder="Stranger ki ID paste karein...">
+    <button onclick="connectManually()">Connect</button>
+  </div>
 
   <div id="video-container">
     <video id="remoteVideo" autoplay playsinline></video>
@@ -47,13 +59,14 @@
   <div id="chat-box"></div>
 
   <div id="controls">
-    <label for="fileInput" style="cursor:pointer; font-size: 20px;">📷</label>
+    <label for="fileInput" style="cursor:pointer; font-size: 22px;">📷</label>
     <input type="file" id="fileInput" accept="image/*" onchange="sendPhoto(this)">
-    <input type="text" id="msgInput" placeholder="Type a message..." onkeypress="handleKey(event)">
+    <input type="text" id="msgInput" placeholder="Message likhein..." onkeypress="handleKey(event)">
     <button onclick="sendText()">Send</button>
   </div>
 
   <script>
+    let myFullId = "";
     let peer = new Peer();
     let conn = null;
     let localStream = null;
@@ -71,35 +84,48 @@
     }
 
     peer.on('open', (id) => {
-      statusEl.innerText = "Online. Your ID: " + id.slice(0, 5);
-      logMsg("Aap online hain. Kisi stranger ka ID daal kar connect karein ya apna ID share karein.");
+      myFullId = id;
+      statusEl.innerText = "Online (Ready to connect)";
+      logMsg("Aap online hain! 'Copy ID' daba kar apna ID share karein ya kisi ka ID paste karke Connect karein.");
+    });
+
+    function copyMyId() {
+      if (!myFullId) return alert("Abhi network connect ho raha hai, 2 second wait karein.");
+      navigator.clipboard.writeText(myFullId).then(() => {
+        alert("Aapki poori ID copy ho gayi hai! Dusre phone par paste karein.");
+      }).catch(() => {
+        prompt("Aapki ID ye hai, ise pura copy karein:", myFullId);
+      });
+    }
+
+    function connectManually() {
+      const targetId = document.getElementById('partnerIdInput').value.trim();
+      if (!targetId) return alert("Pehle ID daalein.");
+      if (targetId === myFullId) return alert("Aap apni hi ID se connect nahi ho sakte.");
       
-      const target = prompt("Agar partner ka ID hai to daalein, warna khali chhod kar Cancel/OK karein:");
-      if (target) connectToPeer(target);
-    });
-
-    peer.on('connection', (c) => {
-      conn = c;
-      setupChat();
-      statusEl.innerText = "Stranger Connected!";
-      logMsg("Stranger jud gaya hai! Privacy enabled: Disconnect hote hi sab delete ho jayega.");
-    });
-
-    function connectToPeer(targetId) {
       statusEl.innerText = "Connecting...";
       conn = peer.connect(targetId);
       setupChat();
       conn.on('open', () => {
         statusEl.innerText = "Connected to Stranger!";
-        logMsg("Connected!");
+        logMsg("Stranger se connection ban gaya hai!");
+        document.getElementById('connect-bar').style.display = 'none';
       });
     }
+
+    peer.on('connection', (c) => {
+      conn = c;
+      setupChat();
+      statusEl.innerText = "Connected to Stranger!";
+      logMsg("Stranger aapse jud gaya hai!");
+      document.getElementById('connect-bar').style.display = 'none';
+    });
 
     function setupChat() {
       conn.on('data', (data) => {
         if (typeof data === 'string') {
           if (data === '__REQUEST_VIDEO__') {
-            if (confirm("Stranger video call request bhej raha hai. Accept karein?")) {
+            if (confirm("Stranger video call request bhej raha hai. Kya aap accept karte hain?")) {
               conn.send('__ACCEPT_VIDEO__');
               startVideo(true);
             }
@@ -118,14 +144,15 @@
       });
       conn.on('close', () => {
         statusEl.innerText = "Stranger disconnected.";
-        logMsg("Stranger chala gaya.");
+        logMsg("Stranger ne chat band kar di.");
       });
     }
 
     function sendText() {
       const input = document.getElementById('msgInput');
       const val = input.value.trim();
-      if (!val || !conn) return;
+      if (!val) return;
+      if (!conn) return alert("Pehle connect karein.");
       conn.send(val);
       logMsg(val, 'me');
       input.value = '';
@@ -137,7 +164,8 @@
 
     function sendPhoto(element) {
       const file = element.files[0];
-      if (!file || !conn) return;
+      if (!file) return;
+      if (!conn) return alert("Pehle connect karein.");
       const reader = new FileReader();
       reader.onload = (e) => {
         conn.send({ type: 'image', data: e.target.result });
@@ -152,10 +180,7 @@
     }
 
     function requestVideoCall() {
-      if (!conn) {
-        alert("Pehle kisi user se connect hone dein.");
-        return;
-      }
+      if (!conn) return alert("Pehle chat connect hone dein.");
       conn.send('__REQUEST_VIDEO__');
       logMsg("Video call request bhej di gayi hai...");
     }
@@ -173,7 +198,7 @@
           });
           currentCall = call;
         }
-      }).catch(() => alert("Camera/Mic permission nahi mili."));
+      }).catch(() => alert("Camera/Microphone permission allow karein."));
     }
 
     peer.on('call', (call) => {
