@@ -6,7 +6,7 @@
   <title>Anonymous Stranger Chat</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100vh; }
     header { padding: 12px 16px; background: #1f1f1f; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
     #status { font-size: 13px; color: #aaa; margin-top: 2px; }
@@ -14,16 +14,55 @@
     video { width: 100%; height: 100%; object-fit: cover; }
     #localVideo { width: 90px; height: 120px; position: absolute; right: 10px; bottom: 10px; border: 2px solid #007aff; border-radius: 8px; z-index: 10; }
     #chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .msg { padding: 9px 13px; border-radius: 12px; max-width: 75%; font-size: 14px; word-break: break-word; }
+    .msg { padding: 9px 13px; border-radius: 12px; max-width: 80%; font-size: 14px; word-break: break-word; }
     .me { background: #007aff; align-self: flex-end; }
     .stranger { background: #2c2c2e; align-self: flex-start; }
     .system { background: transparent; color: #888; align-self: center; font-size: 12px; text-align: center; }
-    .msg img { max-width: 100%; border-radius: 6px; margin-top: 5px; }
-    #controls { padding: 10px; background: #1f1f1f; display: flex; gap: 8px; align-items: center; }
+    
+    /* Photo protection */
+    .msg img { 
+      max-width: 100%; 
+      border-radius: 6px; 
+      margin-top: 5px;
+      -webkit-touch-callout: none !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+      pointer-events: none;
+    }
+
+    /* Voice Note player styling */
+    .msg audio {
+      max-width: 210px;
+      height: 38px;
+      margin-top: 4px;
+    }
+
+    #controls { 
+      padding: 10px; 
+      background: #1f1f1f; 
+      display: flex; 
+      gap: 8px; 
+      align-items: center; 
+      position: relative;
+      z-index: 99999;
+      margin-bottom: 15px;
+    }
     #msgInput { flex: 1; padding: 10px 14px; border-radius: 20px; border: 1px solid #333; background: #2c2c2e; color: #fff; outline: none; }
-    button { padding: 9px 14px; border: none; border-radius: 20px; background: #007aff; color: #fff; font-weight: bold; cursor: pointer; font-size: 13px; }
+    button { padding: 8px 12px; border: none; border-radius: 20px; background: #007aff; color: #fff; font-weight: bold; cursor: pointer; font-size: 13px; }
     button.secondary { background: #3a3a3c; }
+    .btn-icon { background: transparent; font-size: 20px; padding: 4px; border-radius: 50%; }
+    .recording { background: #ff3b30 !important; color: #fff; animation: pulse 1s infinite alternate; }
+    
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.15); }
+    }
+
     #fileInput { display: none; }
+
+    [data-netlify-deploy-id], .netlify-badge, iframe[id*="netlify"] {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -31,11 +70,12 @@
   <header>
     <div>
       <strong>Stranger Chat</strong>
-      <div id="status">Connecting to server...</div>
+      <div id="status">Connecting...</div>
     </div>
-    <div style="display:flex; gap:6px;">
+    <div style="display:flex; gap:5px;">
       <button id="findBtn" onclick="findStranger()">🔍 Match</button>
-      <button id="videoBtn" class="secondary" onclick="requestVideoCall()">📹 Video</button>
+      <button class="secondary" onclick="requestMediaCall('audio')">📞 Audio</button>
+      <button id="videoBtn" class="secondary" onclick="requestMediaCall('video')">📹 Video</button>
       <button class="secondary" onclick="nextStranger()">Next</button>
     </div>
   </header>
@@ -48,8 +88,11 @@
   <div id="chat-box"></div>
 
   <div id="controls">
-    <label for="fileInput" style="cursor:pointer; font-size: 22px;">📷</label>
+    <label for="fileInput" class="btn-icon" style="cursor:pointer;">📷</label>
     <input type="file" id="fileInput" accept="image/*" onchange="sendPhoto(this)">
+    
+    <button id="micBtn" class="btn-icon" onclick="toggleVoiceRecording()" title="Voice note">🎙️</button>
+    
     <input type="text" id="msgInput" placeholder="Message likhein..." onkeypress="handleKey(event)">
     <button onclick="sendText()">Send</button>
   </div>
@@ -63,8 +106,14 @@
     let currentCall = null;
     let isSearching = false;
 
+    // Voice message variables
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
     const statusEl = document.getElementById('status');
     const chatBox = document.getElementById('chat-box');
+    const micBtn = document.getElementById('micBtn');
 
     function logMsg(text, type = 'system') {
       const d = document.createElement('div');
@@ -76,14 +125,14 @@
 
     peer.on('open', (id) => {
       myId = id;
-      statusEl.innerText = "Online. Match par tap karein.";
+      statusEl.innerText = "Online. Match dabayein.";
       logMsg("Aap online hain! Stranger dhundhne ke liye 'Match' dabayein.");
     });
 
     peer.on('connection', (c) => {
       conn = c;
       setupChat();
-      statusEl.innerText = "Stranger Connected!";
+      statusEl.innerText = "Connected!";
       logMsg("Stranger mil gaya! Baatein shuru karein.");
       isSearching = false;
       cleanupQueue();
@@ -92,7 +141,7 @@
     async function findStranger() {
       if (!myId || isSearching) return;
       isSearching = true;
-      statusEl.innerText = "Stranger dhundh rahe hain...";
+      statusEl.innerText = "Searching...";
       logMsg("Kisi stranger ki talash jari hai...");
 
       try {
@@ -117,7 +166,7 @@
             conn = peer.connect(targetPeerId);
             setupChat();
             conn.on('open', () => {
-              statusEl.innerText = "Connected to Stranger!";
+              statusEl.innerText = "Connected!";
               logMsg("Stranger mil gaya! Baatein shuru karein.");
               isSearching = false;
             });
@@ -131,9 +180,9 @@
         });
         const pushData = await pushRes.json();
         window.myQueueKey = pushData.name;
-        statusEl.innerText = "Waiting for someone...";
+        statusEl.innerText = "Waiting for match...";
       } catch (e) {
-        statusEl.innerText = "Network issue. Wapas try karein.";
+        statusEl.innerText = "Network issue.";
         isSearching = false;
       }
     }
@@ -149,12 +198,19 @@
       conn.on('data', (data) => {
         if (typeof data === 'string') {
           if (data === '__REQUEST_VIDEO__') {
-            if (confirm("Stranger video call request bhej raha hai. Kya aap accept karte hain?")) {
+            if (confirm("Stranger video call request bhej raha hai. Accept karein?")) {
               conn.send('__ACCEPT_VIDEO__');
-              startVideo(true);
+              startMediaCall(true, true);
             }
           } else if (data === '__ACCEPT_VIDEO__') {
-            startVideo(false);
+            startMediaCall(false, true);
+          } else if (data === '__REQUEST_AUDIO__') {
+            if (confirm("Stranger voice call request bhej raha hai. Accept karein?")) {
+              conn.send('__ACCEPT_AUDIO__');
+              startMediaCall(true, false);
+            }
+          } else if (data === '__ACCEPT_AUDIO__') {
+            startMediaCall(false, false);
           } else {
             logMsg(data, 'stranger');
           }
@@ -162,6 +218,12 @@
           const d = document.createElement('div');
           d.className = 'msg stranger';
           d.innerHTML = `<img src="${data.data}" />`;
+          chatBox.appendChild(d);
+          chatBox.scrollTop = chatBox.scrollHeight;
+        } else if (data.type === 'audio_note') {
+          const d = document.createElement('div');
+          d.className = 'msg stranger';
+          d.innerHTML = `<div>Voice message:</div><audio controls src="${data.data}"></audio>`;
           chatBox.appendChild(d);
           chatBox.scrollTop = chatBox.scrollHeight;
         }
@@ -177,7 +239,7 @@
       const input = document.getElementById('msgInput');
       const val = input.value.trim();
       if (!val) return;
-      if (!conn) return alert("Pehle 'Match' daba kar kisi se connect ho jayein.");
+      if (!conn) return alert("Pehle 'Match' dabayein.");
       conn.send(val);
       logMsg(val, 'me');
       input.value = '';
@@ -204,38 +266,103 @@
       element.value = '';
     }
 
-    function requestVideoCall() {
-      if (!conn) return alert("Pehle chat connect karein.");
-      conn.send('__REQUEST_VIDEO__');
-      logMsg("Video call request bhej di gayi hai...");
+    // Voice Note Recording
+    async function toggleVoiceRecording() {
+      if (!conn) return alert("Pehle 'Match' dabayein.");
+
+      if (!isRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) audioChunks.push(event.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.onload = () => {
+              const base64Audio = reader.result;
+              conn.send({ type: 'audio_note', data: base64Audio });
+              
+              const d = document.createElement('div');
+              d.className = 'msg me';
+              d.innerHTML = `<div>Voice message:</div><audio controls src="${base64Audio}"></audio>`;
+              chatBox.appendChild(d);
+              chatBox.scrollTop = chatBox.scrollHeight;
+            };
+            reader.readAsDataURL(audioBlob);
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          micBtn.classList.add('recording');
+        } catch (err) {
+          alert("Mic permission allow karein.");
+        }
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        micBtn.classList.remove('recording');
+      }
     }
 
-    function startVideo(isCaller) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
+    function requestMediaCall(mode) {
+      if (!conn) return alert("Pehle chat connect karein.");
+      if (mode === 'video') {
+        conn.send('__REQUEST_VIDEO__');
+        logMsg("Video call request bhej di gayi hai...");
+      } else {
+        conn.send('__REQUEST_AUDIO__');
+        logMsg("Voice call request bhej di gayi hai...");
+      }
+    }
+
+    function startMediaCall(isCaller, isVideo) {
+      const constraints = { audio: true, video: isVideo };
+      navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
         localStream = stream;
-        document.getElementById('video-container').style.display = 'block';
-        document.getElementById('localVideo').srcObject = stream;
+        if (isVideo) {
+          document.getElementById('video-container').style.display = 'block';
+          document.getElementById('localVideo').srcObject = stream;
+        }
 
         if (!isCaller) {
           const call = peer.call(conn.peer, stream);
           call.on('stream', (remoteStream) => {
-            document.getElementById('remoteVideo').srcObject = remoteStream;
+            if (isVideo) {
+              document.getElementById('remoteVideo').srcObject = remoteStream;
+            } else {
+              const audio = new Audio();
+              audio.srcObject = remoteStream;
+              audio.play();
+            }
           });
           currentCall = call;
         }
-      }).catch(() => alert("Camera/Microphone permission allow karein."));
+        logMsg(isVideo ? "Video call active!" : "Voice call active!");
+      }).catch(() => alert("Permission allow karein."));
     }
 
     peer.on('call', (call) => {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
-        localStream = stream;
-        document.getElementById('video-container').style.display = 'block';
-        document.getElementById('localVideo').srcObject = stream;
+      navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then((stream) => {
         call.answer(stream);
         call.on('stream', (remoteStream) => {
+          document.getElementById('video-container').style.display = 'block';
           document.getElementById('remoteVideo').srcObject = remoteStream;
         });
-        currentCall = call;
+      }).catch(() => {
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then((stream) => {
+          call.answer(stream);
+          call.on('stream', (remoteStream) => {
+            const audio = new Audio();
+            audio.srcObject = remoteStream;
+            audio.play();
+          });
+        });
       });
     });
 
