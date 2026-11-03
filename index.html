@@ -2,54 +2,89 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Stranger Chat Pro</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { background: #0e0e12; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     
-    /* Anti-Screenshot CSS & Secure Rules */
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      width: 100%;
+      background: #0e0e12;
+      color: #fff;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Anti-Screenshot & Anti-Selection */
     body, img, video { -webkit-user-select: none; user-select: none; }
     
-    header { background: #16161c; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #24242e; }
+    header {
+      flex-shrink: 0;
+      background: #16161c;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #24242e;
+      z-index: 10;
+    }
     .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #00e676; display: inline-block; margin-right: 6px; }
     .status-text { font-size: 13px; color: #bbb; }
     .btn-skip { background: #ff3b30; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; }
 
-    #chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    #chat-box {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
     
-    .msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; word-break: break-word; }
+    .msg { max-width: 82%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; word-break: break-word; }
     .msg.me { align-self: flex-end; background: #007aff; color: #fff; border-bottom-right-radius: 2px; }
     .msg.stranger { align-self: flex-start; background: #22222a; color: #eee; border-bottom-left-radius: 2px; }
-    .system-msg { align-self: center; font-size: 12px; color: #888; background: #181820; padding: 4px 10px; border-radius: 20px; }
+    .system-msg { align-self: center; font-size: 12px; color: #888; background: #181820; padding: 4px 12px; border-radius: 20px; }
 
     /* Disappearing Media Button */
-    .secure-media-btn { background: #2c2c38; border: 1px dashed #555; color: #ff9500; padding: 10px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 13px; }
+    .secure-media-btn { background: #23232d; border: 1px dashed #ff9500; color: #ff9500; padding: 10px 14px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 13px; }
     
     /* Fullscreen Secure Viewer */
     #media-viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
-    #media-viewer img, #media-viewer video { max-width: 100%; max-height: 85vh; border-radius: 4px; pointer-events: none; }
+    #media-viewer img, #media-viewer video { max-width: 95%; max-height: 80vh; border-radius: 6px; pointer-events: none; }
     .viewer-top { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; color: #fff; font-size: 14px; font-weight: bold; }
     .watermark-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0.12; font-size: 26px; font-weight: bold; color: #fff; transform: rotate(-30deg); user-select: none; }
 
-    /* Emoji Bar */
-    #emoji-drawer { display: none; background: #181820; border-top: 1px solid #282834; padding: 10px; }
-    .emoji-tabs { display: flex; gap: 10px; margin-bottom: 8px; border-bottom: 1px solid #222; padding-bottom: 5px; }
-    .emoji-tab-btn { background: none; border: none; color: #888; font-size: 12px; cursor: pointer; font-weight: bold; padding: 4px 8px; }
-    .emoji-tab-btn.active { color: #fff; border-bottom: 2px solid #007aff; }
-    .emoji-grid { display: flex; gap: 12px; font-size: 22px; overflow-x: auto; padding: 5px 0; }
+    /* Emoji Drawer */
+    #emoji-drawer { display: none; flex-shrink: 0; background: #16161e; border-top: 1px solid #282834; padding: 8px 12px; }
+    .emoji-tabs { display: flex; gap: 10px; margin-bottom: 6px; border-bottom: 1px solid #282830; padding-bottom: 4px; }
+    .emoji-tab-btn { background: none; border: none; color: #888; font-size: 12px; cursor: pointer; font-weight: bold; padding: 4px 6px; }
+    .emoji-tab-btn.active { color: #007aff; border-bottom: 2px solid #007aff; }
+    .emoji-grid { display: flex; gap: 12px; font-size: 22px; overflow-x: auto; padding: 4px 0; }
     .emoji-grid span { cursor: pointer; }
 
-    /* Controls & Input */
-    .input-bar { background: #16161c; padding: 10px 12px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #24242e; }
-    .icon-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px; }
+    /* Controls & Bottom Bar */
+    .input-bar {
+      flex-shrink: 0;
+      background: #16161c;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-top: 1px solid #24242e;
+      z-index: 10;
+    }
+    .icon-btn { background: none; border: none; font-size: 22px; cursor: pointer; padding: 4px; line-height: 1; }
     #text-input { flex: 1; background: #22222a; border: 1px solid #333; color: #fff; padding: 10px 14px; border-radius: 20px; outline: none; font-size: 14px; }
-    .send-btn { background: #007aff; border: none; color: #fff; padding: 10px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+    .send-btn { background: #007aff; border: none; color: #fff; padding: 10px 16px; border-radius: 20px; font-weight: bold; font-size: 13px; cursor: pointer; }
 
-    /* Disappearing Settings Modal */
-    #media-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
-    .modal-card { background: #1a1a24; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; }
-    .timer-btn { background: #282834; color: #fff; border: 1px solid #444; padding: 8px; border-radius: 6px; margin: 4px; cursor: pointer; font-size: 13px; }
+    /* Disappearing Modal */
+    #media-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-card { background: #181822; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; border: 1px solid #2c2c3a; }
+    .timer-btn { background: #262634; color: #fff; border: 1px solid #444; padding: 8px 12px; border-radius: 6px; margin: 4px; cursor: pointer; font-size: 12px; }
     .timer-btn.selected { background: #ff9500; border-color: #ff9500; font-weight: bold; }
   </style>
 </head>
@@ -77,20 +112,20 @@
     <div class="emoji-grid" id="emoji-container"></div>
   </div>
 
-  <!-- Input Bar -->
+  <!-- Pinned Bottom Bar -->
   <div class="input-bar">
-    <button class="icon-btn" onclick="toggleEmojiDrawer()">😊</button>
-    <button class="icon-btn" onclick="openMediaSelector()">📷</button>
+    <button class="icon-btn" onclick="toggleEmojiDrawer()" type="button">😊</button>
+    <button class="icon-btn" onclick="openMediaSelector()" type="button">📷</button>
     <input type="file" id="media-file-input" accept="image/*,video/*" style="display:none;" onchange="handleFileChosen(event)">
     <input type="text" id="text-input" placeholder="Type a message..." onkeypress="handleEnter(event)">
-    <button class="send-btn" onclick="sendTextMessage()">Send</button>
+    <button class="send-btn" onclick="sendTextMessage()" type="button">Send</button>
   </div>
 
   <!-- Disappearing Option Modal -->
   <div id="media-modal">
     <div class="modal-card">
-      <h3 style="margin-bottom: 12px; font-size: 16px;">⏱️ Media Self-Destruct</h3>
-      <p style="font-size: 12px; color: #aaa; margin-bottom: 12px;">Ye photo/video dekhne ke baad gayab ho jayegi.</p>
+      <h3 style="margin-bottom: 8px; font-size: 15px;">⏱️ Media Self-Destruct</h3>
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 12px;">Timer khatam hone par media chat se permanently delete ho jayega.</p>
       <div>
         <button class="timer-btn selected" onclick="selectTimer('once', this)">1 Time View</button>
         <button class="timer-btn" onclick="selectTimer('3', this)">3 Sec</button>
@@ -101,18 +136,17 @@
     </div>
   </div>
 
-  <!-- Secure Fullscreen Media Viewer -->
+  <!-- Fullscreen Secure Viewer -->
   <div id="media-viewer">
     <div class="viewer-top">
       <span id="countdown-tag">⏱️ Viewing</span>
-      <span onclick="closeMediaViewer(true)" style="cursor:pointer; font-size: 18px;">✕</span>
+      <span onclick="closeMediaViewer()" style="cursor:pointer; font-size: 20px;">✕</span>
     </div>
-    <div class="watermark-overlay" id="watermark">PROTECTED • DISAPPEARING</div>
+    <div class="watermark-overlay">PROTECTED • DISAPPEARING</div>
     <div id="viewer-media-slot"></div>
   </div>
 
   <script>
-    // Emoji Sets
     const emojiData = {
       funny: ["😂", "🤣", "💀", "😜", "🤡", "😏", "🤪", "👻"],
       romantic: ["❤️", "😍", "😘", "💖", "🥰", "🙈", "🌹", "✨"],
@@ -123,7 +157,6 @@
     let pendingMediaData = null;
     let activeMediaTimeout = null;
 
-    // Load initial emojis
     switchEmoji('funny', document.querySelector('.emoji-tab-btn'));
 
     function toggleEmojiDrawer() {
@@ -133,7 +166,7 @@
 
     function switchEmoji(category, btn) {
       document.querySelectorAll('.emoji-tab-btn').forEach(b => b.classList.remove('active'));
-      if(btn) btn.classList.add('active');
+      if (btn) btn.classList.add('active');
       const container = document.getElementById('emoji-container');
       container.innerHTML = "";
       emojiData[category].forEach(emoji => {
@@ -157,12 +190,9 @@
       appendMessage(text, 'me');
       input.value = "";
       
-      // Simulated Stranger Reply for testing/core fallback
       setTimeout(() => {
-        if(Math.random() > 0.4) {
-          appendMessage("Hey! Nice to meet you stranger.", 'stranger');
-        }
-      }, 1200);
+        appendMessage("Hey! Nice to meet you stranger.", 'stranger');
+      }, 1000);
     }
 
     function appendMessage(text, sender) {
@@ -174,7 +204,6 @@
       box.scrollTop = box.scrollHeight;
     }
 
-    // Media Handling
     function openMediaSelector() {
       document.getElementById('media-file-input').click();
     }
@@ -208,10 +237,9 @@
       const mediaMsgId = "media_" + Date.now();
       appendSecureMediaButton(mediaMsgId, pendingMediaData, selectedTimerValue, 'me');
       
-      // Auto stranger receive simulation
       setTimeout(() => {
         appendSecureMediaButton(mediaMsgId + "_stranger", pendingMediaData, selectedTimerValue, 'stranger');
-      }, 1500);
+      }, 1200);
 
       pendingMediaData = null;
     }
@@ -224,7 +252,8 @@
 
       const btn = document.createElement('button');
       btn.className = "secure-media-btn";
-      btn.innerHTML = `🔒 Disappearing ${mediaObj.type.toUpperCase()} (${timerType === 'once' ? '1-View' : timerType + 's'})`;
+      btn.type = "button";
+      btn.innerHTML = `🔒 View ${mediaObj.type.toUpperCase()} (${timerType === 'once' ? '1-View' : timerType + 's'})`;
       
       btn.onclick = () => {
         openSecureViewer(id, mediaObj, timerType);
@@ -235,7 +264,6 @@
       box.scrollTop = box.scrollHeight;
     }
 
-    // View-Once Secure Viewer
     function openSecureViewer(msgElementId, mediaObj, timerType) {
       const viewer = document.getElementById('media-viewer');
       const slot = document.getElementById('viewer-media-slot');
@@ -253,12 +281,9 @@
         mediaElement.src = mediaObj.dataUrl;
       }
       
-      // Anti-copy attributes
-      mediaElement.setAttribute('oncontextmenu', 'return false;');
       slot.appendChild(mediaElement);
       viewer.style.display = 'flex';
 
-      // Disappearing Timer Engine
       if (timerType !== 'once') {
         let timeLeft = parseInt(timerType);
         tag.innerText = `⏱️ Burning in ${timeLeft}s`;
@@ -277,7 +302,7 @@
       viewer.dataset.activeMsgId = msgElementId;
     }
 
-    function closeMediaViewer(byUser) {
+    function closeMediaViewer() {
       const viewer = document.getElementById('media-viewer');
       if (activeMediaTimeout) clearInterval(activeMediaTimeout);
       const activeId = viewer.dataset.activeMsgId;
@@ -290,20 +315,18 @@
       const elem = document.getElementById(msgElementId);
       if (elem) {
         elem.innerHTML = "<i>💥 Media Expired & Destroyed</i>";
-        elem.style.opacity = "0.5";
+        elem.style.opacity = "0.45";
       }
       const viewer = document.getElementById('media-viewer');
       viewer.style.display = 'none';
       document.getElementById('viewer-media-slot').innerHTML = "";
     }
 
-    // Screen Recording / App-switch detection (Auto Burn on background blur)
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
-        // User switched app or pulled down screen recorder panel
         const viewer = document.getElementById('media-viewer');
         if (viewer.style.display === 'flex') {
-          closeMediaViewer(false);
+          closeMediaViewer();
         }
       }
     });
