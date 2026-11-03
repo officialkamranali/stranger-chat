@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Stranger Chat Pro</title>
+  <!-- Fast Live WebSocket Broker -->
+  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
     
@@ -11,29 +13,31 @@
       height: 100%;
       height: 100dvh;
       width: 100%;
-      background: #0e0e12;
+      background: #0c0c10;
       color: #fff;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      -webkit-user-select: none;
+      user-select: none;
     }
-    
-    /* Anti-Screenshot & Anti-Selection */
-    body, img, video { -webkit-user-select: none; user-select: none; }
-    
+
     header {
       flex-shrink: 0;
-      background: #16161c;
+      background: #14141a;
       padding: 12px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #24242e;
+      border-bottom: 1px solid #22222c;
       z-index: 10;
     }
-    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #00e676; display: inline-block; margin-right: 6px; }
-    .status-text { font-size: 13px; color: #bbb; }
+    .status-wrap { display: flex; align-items: center; gap: 8px; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff9500; transition: 0.3s; }
+    .status-dot.online { background: #00e676; }
+    .status-text { font-size: 13px; color: #ccc; font-weight: 500; }
     .btn-skip { background: #ff3b30; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; }
+    .btn-skip:active { opacity: 0.8; }
 
     #chat-box {
       flex: 1;
@@ -47,59 +51,71 @@
     .msg { max-width: 82%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; word-break: break-word; }
     .msg.me { align-self: flex-end; background: #007aff; color: #fff; border-bottom-right-radius: 2px; }
     .msg.stranger { align-self: flex-start; background: #22222a; color: #eee; border-bottom-left-radius: 2px; }
-    .system-msg { align-self: center; font-size: 12px; color: #888; background: #181820; padding: 4px 12px; border-radius: 20px; }
+    .system-msg { align-self: center; font-size: 12px; color: #888; background: #161620; padding: 4px 12px; border-radius: 20px; text-align: center; }
 
     /* Disappearing Media Button */
-    .secure-media-btn { background: #23232d; border: 1px dashed #ff9500; color: #ff9500; padding: 10px 14px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 13px; }
-    
+    .secure-media-btn {
+      background: #1c1c26;
+      border: 1px dashed #ff9500;
+      color: #ff9500;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
     /* Fullscreen Secure Viewer */
     #media-viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
     #media-viewer img, #media-viewer video { max-width: 95%; max-height: 80vh; border-radius: 6px; pointer-events: none; }
     .viewer-top { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; color: #fff; font-size: 14px; font-weight: bold; }
-    .watermark-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0.12; font-size: 26px; font-weight: bold; color: #fff; transform: rotate(-30deg); user-select: none; }
+    .watermark-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0.12; font-size: 24px; font-weight: bold; color: #fff; transform: rotate(-30deg); }
 
     /* Emoji Drawer */
-    #emoji-drawer { display: none; flex-shrink: 0; background: #16161e; border-top: 1px solid #282834; padding: 8px 12px; }
-    .emoji-tabs { display: flex; gap: 10px; margin-bottom: 6px; border-bottom: 1px solid #282830; padding-bottom: 4px; }
-    .emoji-tab-btn { background: none; border: none; color: #888; font-size: 12px; cursor: pointer; font-weight: bold; padding: 4px 6px; }
+    #emoji-drawer { display: none; flex-shrink: 0; background: #14141c; border-top: 1px solid #242430; padding: 8px 12px; }
+    .emoji-tabs { display: flex; gap: 10px; margin-bottom: 6px; border-bottom: 1px solid #22222a; padding-bottom: 4px; }
+    .emoji-tab-btn { background: none; border: none; color: #777; font-size: 12px; cursor: pointer; font-weight: bold; padding: 4px 6px; }
     .emoji-tab-btn.active { color: #007aff; border-bottom: 2px solid #007aff; }
-    .emoji-grid { display: flex; gap: 12px; font-size: 22px; overflow-x: auto; padding: 4px 0; }
+    .emoji-grid { display: flex; gap: 14px; font-size: 22px; overflow-x: auto; padding: 4px 0; }
     .emoji-grid span { cursor: pointer; }
 
     /* Controls & Bottom Bar */
     .input-bar {
       flex-shrink: 0;
-      background: #16161c;
+      background: #14141a;
       padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
       display: flex;
       align-items: center;
       gap: 8px;
-      border-top: 1px solid #24242e;
+      border-top: 1px solid #22222c;
       z-index: 10;
     }
     .icon-btn { background: none; border: none; font-size: 22px; cursor: pointer; padding: 4px; line-height: 1; }
-    #text-input { flex: 1; background: #22222a; border: 1px solid #333; color: #fff; padding: 10px 14px; border-radius: 20px; outline: none; font-size: 14px; }
+    #text-input { flex: 1; background: #202028; border: 1px solid #333; color: #fff; padding: 10px 14px; border-radius: 20px; outline: none; font-size: 14px; }
     .send-btn { background: #007aff; border: none; color: #fff; padding: 10px 16px; border-radius: 20px; font-weight: bold; font-size: 13px; cursor: pointer; }
 
     /* Disappearing Modal */
     #media-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
     .modal-card { background: #181822; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; border: 1px solid #2c2c3a; }
-    .timer-btn { background: #262634; color: #fff; border: 1px solid #444; padding: 8px 12px; border-radius: 6px; margin: 4px; cursor: pointer; font-size: 12px; }
+    .timer-btn { background: #242432; color: #fff; border: 1px solid #444; padding: 8px 12px; border-radius: 6px; margin: 4px; cursor: pointer; font-size: 12px; }
     .timer-btn.selected { background: #ff9500; border-color: #ff9500; font-weight: bold; }
   </style>
 </head>
 <body oncontextmenu="return false;">
 
   <header>
-    <div>
-      <span class="status-dot"></span>
-      <span class="status-text" id="partner-status">Connected to Stranger</span>
+    <div class="status-wrap">
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-text" id="partner-status">Connecting to server...</span>
     </div>
-    <button class="btn-skip" onclick="skipStranger()">New Chat</button>
+    <button class="btn-skip" onclick="findNewStranger()">New Chat</button>
   </header>
 
   <div id="chat-box">
-    <div class="system-msg">🔒 End-to-end private chat. Screenshot protected.</div>
+    <div class="system-msg">🔒 Secure End-to-End Chat. Screenshot protection active.</div>
   </div>
 
   <!-- Emoji Drawer -->
@@ -112,7 +128,7 @@
     <div class="emoji-grid" id="emoji-container"></div>
   </div>
 
-  <!-- Pinned Bottom Bar -->
+  <!-- Bottom Input Bar -->
   <div class="input-bar">
     <button class="icon-btn" onclick="toggleEmojiDrawer()" type="button">😊</button>
     <button class="icon-btn" onclick="openMediaSelector()" type="button">📷</button>
@@ -121,7 +137,7 @@
     <button class="send-btn" onclick="sendTextMessage()" type="button">Send</button>
   </div>
 
-  <!-- Disappearing Option Modal -->
+  <!-- Disappearing Modal -->
   <div id="media-modal">
     <div class="modal-card">
       <h3 style="margin-bottom: 8px; font-size: 15px;">⏱️ Media Self-Destruct</h3>
@@ -147,38 +163,120 @@
   </div>
 
   <script>
-    const emojiData = {
-      funny: ["😂", "🤣", "💀", "😜", "🤡", "😏", "🤪", "👻"],
-      romantic: ["❤️", "😍", "😘", "💖", "🥰", "🙈", "🌹", "✨"],
-      sad: ["🥺", "😭", "💔", "😢", "😱", "😶", "🤦‍♂️", "😞"]
-    };
+    // Real-Time Live P2P Networking
+    const myId = "usr_" + Math.random().toString(36).substring(2, 9);
+    const LOBBY_TOPIC = "stranger_chat_live_lobby_v1";
+    const PRIVATE_TOPIC = "stranger_private_" + myId;
+    
+    let client = null;
+    let currentRoom = null;
+    let isMatched = false;
+    let searchInterval = null;
 
-    let selectedTimerValue = "once";
-    let pendingMediaData = null;
-    let activeMediaTimeout = null;
+    // Connect to HiveMQ Public WebSocket Broker
+    client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
-    switchEmoji('funny', document.querySelector('.emoji-tab-btn'));
+    client.on("connect", () => {
+      client.subscribe(PRIVATE_TOPIC);
+      findNewStranger();
+    });
 
-    function toggleEmojiDrawer() {
-      const drawer = document.getElementById('emoji-drawer');
-      drawer.style.display = drawer.style.display === 'block' ? 'none' : 'block';
+    client.on("message", (topic, message) => {
+      try {
+        const payload = JSON.parse(message.toString());
+
+        // Matchmaking logic
+        if (topic === LOBBY_TOPIC && !isMatched) {
+          if (payload.type === "looking" && payload.peerId !== myId) {
+            // Priority check to avoid clash
+            if (myId < payload.peerId) {
+              const roomId = "room_" + myId + "_" + payload.peerId;
+              client.publish("stranger_private_" + payload.peerId, JSON.stringify({
+                type: "match_invite",
+                roomId: roomId,
+                peerId: myId
+              }));
+              joinRoom(roomId);
+            }
+          }
+        } else if (topic === PRIVATE_TOPIC && !isMatched) {
+          if (payload.type === "match_invite") {
+            joinRoom(payload.roomId);
+          }
+        } else if (currentRoom && topic === currentRoom) {
+          // Room messages
+          if (payload.senderId === myId) return;
+
+          if (payload.type === "chat") {
+            appendMessage(payload.text, 'stranger');
+          } else if (payload.type === "media") {
+            appendSecureMediaButton(payload.mediaId, payload.mediaObj, payload.timerType, 'stranger');
+          } else if (payload.type === "leave") {
+            handlePartnerLeft();
+          }
+        }
+      } catch (err) {}
+    });
+
+    function findNewStranger() {
+      if (currentRoom) {
+        client.publish(currentRoom, JSON.stringify({ type: "leave", senderId: myId }));
+        client.unsubscribe(currentRoom);
+      }
+      currentRoom = null;
+      isMatched = false;
+      if (searchInterval) clearInterval(searchInterval);
+
+      document.getElementById('partner-status').innerText = "Searching for stranger...";
+      document.getElementById('status-dot').className = "status-dot";
+      
+      const box = document.getElementById('chat-box');
+      box.innerHTML = `<div class="system-msg">🔍 Searching for an online stranger...</div>`;
+
+      client.subscribe(LOBBY_TOPIC);
+
+      searchInterval = setInterval(() => {
+        if (!isMatched) {
+          client.publish(LOBBY_TOPIC, JSON.stringify({ type: "looking", peerId: myId }));
+        }
+      }, 1500);
     }
 
-    function switchEmoji(category, btn) {
-      document.querySelectorAll('.emoji-tab-btn').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
-      const container = document.getElementById('emoji-container');
-      container.innerHTML = "";
-      emojiData[category].forEach(emoji => {
-        const span = document.createElement('span');
-        span.innerText = emoji;
-        span.onclick = () => {
-          document.getElementById('text-input').value += emoji;
-        };
-        container.appendChild(span);
-      });
+    function joinRoom(roomId) {
+      isMatched = true;
+      if (searchInterval) clearInterval(searchInterval);
+      client.unsubscribe(LOBBY_TOPIC);
+
+      currentRoom = roomId;
+      client.subscribe(currentRoom);
+
+      document.getElementById('partner-status').innerText = "Connected to Stranger";
+      document.getElementById('status-dot').className = "status-dot online";
+
+      const box = document.getElementById('chat-box');
+      box.innerHTML = `<div class="system-msg">🎉 Connected to a real stranger! Say hi.</div>`;
     }
 
+    function handlePartnerLeft() {
+      appendSystemMessage("Stranger has disconnected.");
+      document.getElementById('partner-status').innerText = "Stranger disconnected";
+      document.getElementById('status-dot').className = "status-dot";
+      isMatched = false;
+      setTimeout(() => {
+        findNewStranger();
+      }, 2000);
+    }
+
+    function appendSystemMessage(txt) {
+      const box = document.getElementById('chat-box');
+      const div = document.createElement('div');
+      div.className = "system-msg";
+      div.innerText = txt;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // Chat Operations
     function handleEnter(e) {
       if (e.key === "Enter") sendTextMessage();
     }
@@ -187,12 +285,17 @@
       const input = document.getElementById('text-input');
       const text = input.value.trim();
       if (!text) return;
+      if (!isMatched || !currentRoom) {
+        return alert("Kripya stranger connect hone ka intezar karein!");
+      }
+
       appendMessage(text, 'me');
+      client.publish(currentRoom, JSON.stringify({
+        type: "chat",
+        text: text,
+        senderId: myId
+      }));
       input.value = "";
-      
-      setTimeout(() => {
-        appendMessage("Hey! Nice to meet you stranger.", 'stranger');
-      }, 1000);
     }
 
     function appendMessage(text, sender) {
@@ -204,7 +307,13 @@
       box.scrollTop = box.scrollHeight;
     }
 
+    // Media & Disappearing Engine
+    let selectedTimerValue = "once";
+    let pendingMediaData = null;
+    let activeMediaTimeout = null;
+
     function openMediaSelector() {
+      if (!isMatched || !currentRoom) return alert("Pehle stranger se connect hone dein!");
       document.getElementById('media-file-input').click();
     }
 
@@ -212,15 +321,37 @@
       const file = event.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        pendingMediaData = {
-          type: file.type.startsWith('video') ? 'video' : 'image',
-          dataUrl: e.target.result
+      if (file.type.startsWith('video') && file.size > 1.5 * 1024 * 1024) {
+        return alert("Video ka size 1.5MB se chhota hona chahiye taaki instant send ho sake.");
+      }
+
+      if (file.type.startsWith('image')) {
+        // Fast image compression to ~50KB
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const max = 700;
+            let w = img.width, h = img.height;
+            if (w > h && w > max) { h = Math.round(h * max / w); w = max; }
+            else if (h > max) { w = Math.round(w * max / h); h = max; }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            pendingMediaData = { type: 'image', dataUrl: canvas.toDataURL('image/jpeg', 0.6) };
+            document.getElementById('media-modal').style.display = 'flex';
+          };
+          img.src = e.target.result;
         };
-        document.getElementById('media-modal').style.display = 'flex';
-      };
-      reader.readAsDataURL(file);
+        reader.readAsDataURL(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          pendingMediaData = { type: 'video', dataUrl: e.target.result };
+          document.getElementById('media-modal').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      }
       event.target.value = "";
     }
 
@@ -232,14 +363,18 @@
 
     function confirmSendMedia() {
       document.getElementById('media-modal').style.display = 'none';
-      if (!pendingMediaData) return;
+      if (!pendingMediaData || !currentRoom) return;
 
-      const mediaMsgId = "media_" + Date.now();
-      appendSecureMediaButton(mediaMsgId, pendingMediaData, selectedTimerValue, 'me');
+      const mediaId = "media_" + Date.now();
+      appendSecureMediaButton(mediaId, pendingMediaData, selectedTimerValue, 'me');
       
-      setTimeout(() => {
-        appendSecureMediaButton(mediaMsgId + "_stranger", pendingMediaData, selectedTimerValue, 'stranger');
-      }, 1200);
+      client.publish(currentRoom, JSON.stringify({
+        type: "media",
+        mediaId: mediaId,
+        mediaObj: pendingMediaData,
+        timerType: selectedTimerValue,
+        senderId: myId
+      }));
 
       pendingMediaData = null;
     }
@@ -322,6 +457,7 @@
       document.getElementById('viewer-media-slot').innerHTML = "";
     }
 
+    // Auto-destroy media if screenshot/recorder gesture triggers blur
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         const viewer = document.getElementById('media-viewer');
@@ -331,12 +467,33 @@
       }
     });
 
-    function skipStranger() {
-      const box = document.getElementById('chat-box');
-      box.innerHTML = `<div class="system-msg">Disconnected. Finding a new stranger...</div>`;
-      setTimeout(() => {
-        box.innerHTML = `<div class="system-msg">Connected to a new stranger! Say hi.</div>`;
-      }, 1000);
+    // Emojis Drawer
+    const emojiData = {
+      funny: ["😂", "🤣", "💀", "😜", "🤡", "😏", "🤪", "👻"],
+      romantic: ["❤️", "😍", "😘", "💖", "🥰", "🙈", "🌹", "✨"],
+      sad: ["🥺", "😭", "💔", "😢", "😱", "😶", "🤦‍♂️", "😞"]
+    };
+
+    switchEmoji('funny', document.querySelector('.emoji-tab-btn'));
+
+    function toggleEmojiDrawer() {
+      const drawer = document.getElementById('emoji-drawer');
+      drawer.style.display = drawer.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function switchEmoji(category, btn) {
+      document.querySelectorAll('.emoji-tab-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      const container = document.getElementById('emoji-container');
+      container.innerHTML = "";
+      emojiData[category].forEach(emoji => {
+        const span = document.createElement('span');
+        span.innerText = emoji;
+        span.onclick = () => {
+          document.getElementById('text-input').value += emoji;
+        };
+        container.appendChild(span);
+      });
     }
   </script>
 </body>
