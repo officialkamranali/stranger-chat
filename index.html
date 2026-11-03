@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Stranger Chat Pro</title>
-  <!-- Fast Live WebSocket Broker -->
   <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -13,7 +12,7 @@
       height: 100%;
       height: 100dvh;
       width: 100%;
-      background: #0c0c10;
+      background: #0b0b10;
       color: #fff;
       overflow: hidden;
       display: flex;
@@ -22,26 +21,31 @@
       user-select: none;
     }
 
+    /* Header */
     header {
       flex-shrink: 0;
-      background: #14141a;
-      padding: 12px 16px;
+      background: #14141c;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #22222c;
-      z-index: 10;
+      border-bottom: 1px solid #22222e;
+      z-index: 20;
     }
     .status-wrap { display: flex; align-items: center; gap: 8px; }
     .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff9500; transition: 0.3s; }
     .status-dot.online { background: #00e676; }
     .status-text { font-size: 13px; color: #ccc; font-weight: 500; }
-    .btn-skip { background: #ff3b30; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; }
-    .btn-skip:active { opacity: 0.8; }
+    
+    .call-actions { display: flex; gap: 8px; align-items: center; }
+    .action-btn { background: #22222e; border: 1px solid #333342; color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .action-btn.danger { background: #ff3b30; border: none; font-weight: bold; }
+    .action-btn:active { opacity: 0.7; }
 
+    /* Chat Area */
     #chat-box {
       flex: 1;
-      padding: 15px;
+      padding: 14px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -50,12 +54,12 @@
     
     .msg { max-width: 82%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; word-break: break-word; }
     .msg.me { align-self: flex-end; background: #007aff; color: #fff; border-bottom-right-radius: 2px; }
-    .msg.stranger { align-self: flex-start; background: #22222a; color: #eee; border-bottom-left-radius: 2px; }
-    .system-msg { align-self: center; font-size: 12px; color: #888; background: #161620; padding: 4px 12px; border-radius: 20px; text-align: center; }
+    .msg.stranger { align-self: flex-start; background: #1e1e28; color: #eee; border-bottom-left-radius: 2px; }
+    .system-msg { align-self: center; font-size: 12px; color: #888; background: #161622; padding: 4px 12px; border-radius: 20px; text-align: center; }
 
-    /* Disappearing Media Button */
+    /* Media Button */
     .secure-media-btn {
-      background: #1c1c26;
+      background: #191924;
       border: 1px dashed #ff9500;
       color: #ff9500;
       padding: 10px 14px;
@@ -63,10 +67,35 @@
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       font-weight: bold;
       font-size: 13px;
     }
+
+    /* Bottom Input Bar */
+    .input-bar {
+      flex-shrink: 0;
+      background: #14141c;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-top: 1px solid #22222e;
+      z-index: 20;
+    }
+    .icon-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 6px; line-height: 1; color: #fff; }
+    .icon-btn.recording { color: #ff3b30; animation: pulse 1s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+    #text-input { flex: 1; background: #1f1f2a; border: 1px solid #333342; color: #fff; padding: 10px 14px; border-radius: 20px; outline: none; font-size: 14px; }
+    .send-btn { background: #007aff; border: none; color: #fff; padding: 10px 16px; border-radius: 20px; font-weight: bold; font-size: 13px; cursor: pointer; }
+
+    /* Disappearing Modal */
+    #media-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-card { background: #181824; padding: 20px; border-radius: 14px; width: 85%; max-width: 320px; text-align: center; border: 1px solid #2c2c3e; }
+    .timer-wrap { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 12px 0; }
+    .timer-btn { background: #252536; color: #ccc; border: 1px solid #3e3e52; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .timer-btn.selected { background: #ff9500; border-color: #ff9500; color: #000; font-weight: bold; }
 
     /* Fullscreen Secure Viewer */
     #media-viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
@@ -74,34 +103,21 @@
     .viewer-top { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; color: #fff; font-size: 14px; font-weight: bold; }
     .watermark-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0.12; font-size: 24px; font-weight: bold; color: #fff; transform: rotate(-30deg); }
 
-    /* Emoji Drawer */
-    #emoji-drawer { display: none; flex-shrink: 0; background: #14141c; border-top: 1px solid #242430; padding: 8px 12px; }
-    .emoji-tabs { display: flex; gap: 10px; margin-bottom: 6px; border-bottom: 1px solid #22222a; padding-bottom: 4px; }
-    .emoji-tab-btn { background: none; border: none; color: #777; font-size: 12px; cursor: pointer; font-weight: bold; padding: 4px 6px; }
-    .emoji-tab-btn.active { color: #007aff; border-bottom: 2px solid #007aff; }
-    .emoji-grid { display: flex; gap: 14px; font-size: 22px; overflow-x: auto; padding: 4px 0; }
-    .emoji-grid span { cursor: pointer; }
+    /* Calling Overlay & Permission Modal */
+    #call-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; align-items: center; justify-content: center; flex-direction: column; }
+    .call-card { background: #1c1c28; padding: 25px; border-radius: 16px; width: 85%; max-width: 300px; text-align: center; border: 1px solid #333344; }
+    .call-btn-group { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
+    .call-btn { padding: 12px 24px; border-radius: 30px; border: none; font-weight: bold; font-size: 14px; cursor: pointer; }
+    .call-btn.accept { background: #00e676; color: #000; }
+    .call-btn.decline { background: #ff3b30; color: #fff; }
 
-    /* Controls & Bottom Bar */
-    .input-bar {
-      flex-shrink: 0;
-      background: #14141a;
-      padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      border-top: 1px solid #22222c;
-      z-index: 10;
-    }
-    .icon-btn { background: none; border: none; font-size: 22px; cursor: pointer; padding: 4px; line-height: 1; }
-    #text-input { flex: 1; background: #202028; border: 1px solid #333; color: #fff; padding: 10px 14px; border-radius: 20px; outline: none; font-size: 14px; }
-    .send-btn { background: #007aff; border: none; color: #fff; padding: 10px 16px; border-radius: 20px; font-weight: bold; font-size: 13px; cursor: pointer; }
-
-    /* Disappearing Modal */
-    #media-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
-    .modal-card { background: #181822; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; border: 1px solid #2c2c3a; }
-    .timer-btn { background: #242432; color: #fff; border: 1px solid #444; padding: 8px 12px; border-radius: 6px; margin: 4px; cursor: pointer; font-size: 12px; }
-    .timer-btn.selected { background: #ff9500; border-color: #ff9500; font-weight: bold; }
+    /* In-Call Video Container */
+    #call-container { display: none; position: fixed; inset: 0; background: #111; z-index: 10001; flex-direction: column; }
+    .video-view { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
+    video.remote { width: 100%; height: 100%; object-fit: cover; }
+    video.local { position: absolute; top: 15px; right: 15px; width: 90px; height: 130px; object-fit: cover; border-radius: 10px; border: 2px solid #007aff; }
+    .call-controls { height: 80px; background: #14141c; display: flex; align-items: center; justify-content: center; gap: 20px; }
+    .end-call-btn { background: #ff3b30; color: #fff; border: none; border-radius: 50%; width: 55px; height: 55px; font-size: 20px; cursor: pointer; }
   </style>
 </head>
 <body oncontextmenu="return false;">
@@ -109,30 +125,24 @@
   <header>
     <div class="status-wrap">
       <span class="status-dot" id="status-dot"></span>
-      <span class="status-text" id="partner-status">Connecting to server...</span>
+      <span class="status-text" id="partner-status">Connecting...</span>
     </div>
-    <button class="btn-skip" onclick="findNewStranger()">New Chat</button>
+    <div class="call-actions">
+      <button class="action-btn" onclick="startCall('voice')">📞</button>
+      <button class="action-btn" onclick="startCall('video')">📹</button>
+      <button class="action-btn danger" onclick="findNewStranger()">Next</button>
+    </div>
   </header>
 
   <div id="chat-box">
-    <div class="system-msg">🔒 Secure End-to-End Chat. Screenshot protection active.</div>
+    <div class="system-msg">🔒 Searching for real stranger...</div>
   </div>
 
-  <!-- Emoji Drawer -->
-  <div id="emoji-drawer">
-    <div class="emoji-tabs">
-      <button class="emoji-tab-btn active" onclick="switchEmoji('funny', this)">Funny 😂</button>
-      <button class="emoji-tab-btn" onclick="switchEmoji('romantic', this)">Romantic ❤️</button>
-      <button class="emoji-tab-btn" onclick="switchEmoji('sad', this)">Sad/Shock 🥺</button>
-    </div>
-    <div class="emoji-grid" id="emoji-container"></div>
-  </div>
-
-  <!-- Bottom Input Bar -->
+  <!-- Pinned Bottom Bar -->
   <div class="input-bar">
-    <button class="icon-btn" onclick="toggleEmojiDrawer()" type="button">😊</button>
     <button class="icon-btn" onclick="openMediaSelector()" type="button">📷</button>
     <input type="file" id="media-file-input" accept="image/*,video/*" style="display:none;" onchange="handleFileChosen(event)">
+    <button class="icon-btn" id="voice-record-btn" onclick="toggleVoiceRecording()" type="button">🎙️</button>
     <input type="text" id="text-input" placeholder="Type a message..." onkeypress="handleEnter(event)">
     <button class="send-btn" onclick="sendTextMessage()" type="button">Send</button>
   </div>
@@ -140,15 +150,16 @@
   <!-- Disappearing Modal -->
   <div id="media-modal">
     <div class="modal-card">
-      <h3 style="margin-bottom: 8px; font-size: 15px;">⏱️ Media Self-Destruct</h3>
-      <p style="font-size: 12px; color: #aaa; margin-bottom: 12px;">Timer khatam hone par media chat se permanently delete ho jayega.</p>
-      <div>
-        <button class="timer-btn selected" onclick="selectTimer('once', this)">1 Time View</button>
-        <button class="timer-btn" onclick="selectTimer('3', this)">3 Sec</button>
-        <button class="timer-btn" onclick="selectTimer('5', this)">5 Sec</button>
-        <button class="timer-btn" onclick="selectTimer('10', this)">10 Sec</button>
+      <h3 style="font-size: 15px;">⏱️ Media Self-Destruct</h3>
+      <p style="font-size: 12px; color: #aaa; margin-top: 4px;">Time pura hote hi media chat se delete ho jayega.</p>
+      <div class="timer-wrap">
+        <button class="timer-btn selected" onclick="selectTimer('once', this)">1-View</button>
+        <button class="timer-btn" onclick="selectTimer('3', this)">3s</button>
+        <button class="timer-btn" onclick="selectTimer('5', this)">5s</button>
+        <button class="timer-btn" onclick="selectTimer('10', this)">10s</button>
+        <button class="timer-btn" onclick="selectTimer('15', this)">15s</button>
       </div>
-      <button class="send-btn" style="width: 100%; margin-top: 15px;" onclick="confirmSendMedia()">Send Disappearing Media</button>
+      <button class="send-btn" style="width: 100%; margin-top: 10px;" onclick="confirmSendMedia()">Send Secure Media</button>
     </div>
   </div>
 
@@ -162,63 +173,91 @@
     <div id="viewer-media-slot"></div>
   </div>
 
+  <!-- Incoming Call Permission Modal -->
+  <div id="call-modal">
+    <div class="call-card">
+      <h3 id="incoming-call-text">📞 Incoming Call...</h3>
+      <p style="font-size: 12px; color: #888; margin-top: 6px;">Stranger aapse baat karna chahta hai.</p>
+      <div class="call-btn-group">
+        <button class="call-btn accept" onclick="acceptCall()">Accept</button>
+        <button class="call-btn decline" onclick="declineCall()">Decline</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Call Interface -->
+  <div id="call-container">
+    <div class="video-view">
+      <video id="remoteVideo" class="remote" autoplay playsinline></video>
+      <video id="localVideo" class="local" autoplay playsinline muted></video>
+      <audio id="remoteAudio" autoplay></audio>
+    </div>
+    <div class="call-controls">
+      <button class="end-call-btn" onclick="endCall(true)">📞</button>
+    </div>
+  </div>
+
   <script>
-    // Real-Time Live P2P Networking
+    // Live Network & Broker Setup
     const myId = "usr_" + Math.random().toString(36).substring(2, 9);
-    const LOBBY_TOPIC = "stranger_chat_live_lobby_v1";
-    const PRIVATE_TOPIC = "stranger_private_" + myId;
+    const LOBBY_TOPIC = "stranger_live_lobby_v9";
+    const PRIVATE_TOPIC = "stranger_priv_" + myId;
     
-    let client = null;
+    let client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
     let currentRoom = null;
     let isMatched = false;
     let searchInterval = null;
-
-    // Connect to HiveMQ Public WebSocket Broker
-    client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
     client.on("connect", () => {
       client.subscribe(PRIVATE_TOPIC);
       findNewStranger();
     });
 
-    client.on("message", (topic, message) => {
+    client.on("message", (topic, msg) => {
       try {
-        const payload = JSON.parse(message.toString());
+        const data = JSON.parse(msg.toString());
 
-        // Matchmaking logic
         if (topic === LOBBY_TOPIC && !isMatched) {
-          if (payload.type === "looking" && payload.peerId !== myId) {
-            // Priority check to avoid clash
-            if (myId < payload.peerId) {
-              const roomId = "room_" + myId + "_" + payload.peerId;
-              client.publish("stranger_private_" + payload.peerId, JSON.stringify({
+          if (data.type === "looking" && data.peerId !== myId) {
+            if (myId < data.peerId) {
+              const roomId = "room_" + myId + "_" + data.peerId;
+              client.publish("stranger_priv_" + data.peerId, JSON.stringify({
                 type: "match_invite",
-                roomId: roomId,
-                peerId: myId
+                roomId: roomId
               }));
               joinRoom(roomId);
             }
           }
         } else if (topic === PRIVATE_TOPIC && !isMatched) {
-          if (payload.type === "match_invite") {
-            joinRoom(payload.roomId);
+          if (data.type === "match_invite") {
+            joinRoom(data.roomId);
           }
         } else if (currentRoom && topic === currentRoom) {
-          // Room messages
-          if (payload.senderId === myId) return;
+          if (data.senderId === myId) return;
 
-          if (payload.type === "chat") {
-            appendMessage(payload.text, 'stranger');
-          } else if (payload.type === "media") {
-            appendSecureMediaButton(payload.mediaId, payload.mediaObj, payload.timerType, 'stranger');
-          } else if (payload.type === "leave") {
+          if (data.type === "chat") {
+            appendMessage(data.text, 'stranger');
+          } else if (data.type === "media") {
+            appendSecureMediaButton(data.mediaId, data.mediaObj, data.timerType, 'stranger');
+          } else if (data.type === "voice_note") {
+            appendVoiceNote(data.audioUrl, 'stranger');
+          } else if (data.type === "call_req") {
+            handleIncomingCall(data.callType);
+          } else if (data.type === "call_ans") {
+            handleCallAnswer(data.accepted);
+          } else if (data.type === "webrtc_signal") {
+            handleWebRTCSignal(data.signal);
+          } else if (data.type === "call_ended") {
+            endCall(false);
+          } else if (data.type === "leave") {
             handlePartnerLeft();
           }
         }
-      } catch (err) {}
+      } catch (e) {}
     });
 
     function findNewStranger() {
+      endCall(false);
       if (currentRoom) {
         client.publish(currentRoom, JSON.stringify({ type: "leave", senderId: myId }));
         client.unsubscribe(currentRoom);
@@ -227,14 +266,13 @@
       isMatched = false;
       if (searchInterval) clearInterval(searchInterval);
 
-      document.getElementById('partner-status').innerText = "Searching for stranger...";
+      document.getElementById('partner-status').innerText = "Finding stranger...";
       document.getElementById('status-dot').className = "status-dot";
       
       const box = document.getElementById('chat-box');
       box.innerHTML = `<div class="system-msg">🔍 Searching for an online stranger...</div>`;
 
       client.subscribe(LOBBY_TOPIC);
-
       searchInterval = setInterval(() => {
         if (!isMatched) {
           client.publish(LOBBY_TOPIC, JSON.stringify({ type: "looking", peerId: myId }));
@@ -250,21 +288,20 @@
       currentRoom = roomId;
       client.subscribe(currentRoom);
 
-      document.getElementById('partner-status').innerText = "Connected to Stranger";
+      document.getElementById('partner-status').innerText = "Stranger Connected";
       document.getElementById('status-dot').className = "status-dot online";
 
       const box = document.getElementById('chat-box');
-      box.innerHTML = `<div class="system-msg">🎉 Connected to a real stranger! Say hi.</div>`;
+      box.innerHTML = `<div class="system-msg">🎉 Stranger connected! Start talking.</div>`;
     }
 
     function handlePartnerLeft() {
-      appendSystemMessage("Stranger has disconnected.");
-      document.getElementById('partner-status').innerText = "Stranger disconnected";
+      appendSystemMessage("Stranger disconnected.");
+      document.getElementById('partner-status').innerText = "Disconnected";
       document.getElementById('status-dot').className = "status-dot";
       isMatched = false;
-      setTimeout(() => {
-        findNewStranger();
-      }, 2000);
+      endCall(false);
+      setTimeout(findNewStranger, 2000);
     }
 
     function appendSystemMessage(txt) {
@@ -276,25 +313,16 @@
       box.scrollTop = box.scrollHeight;
     }
 
-    // Chat Operations
-    function handleEnter(e) {
-      if (e.key === "Enter") sendTextMessage();
-    }
+    // Text Chat
+    function handleEnter(e) { if (e.key === "Enter") sendTextMessage(); }
 
     function sendTextMessage() {
       const input = document.getElementById('text-input');
       const text = input.value.trim();
-      if (!text) return;
-      if (!isMatched || !currentRoom) {
-        return alert("Kripya stranger connect hone ka intezar karein!");
-      }
+      if (!text || !isMatched || !currentRoom) return;
 
       appendMessage(text, 'me');
-      client.publish(currentRoom, JSON.stringify({
-        type: "chat",
-        text: text,
-        senderId: myId
-      }));
+      client.publish(currentRoom, JSON.stringify({ type: "chat", text: text, senderId: myId }));
       input.value = "";
     }
 
@@ -307,52 +335,49 @@
       box.scrollTop = box.scrollHeight;
     }
 
-    // Media & Disappearing Engine
+    // Disappearing Media
     let selectedTimerValue = "once";
     let pendingMediaData = null;
     let activeMediaTimeout = null;
 
     function openMediaSelector() {
-      if (!isMatched || !currentRoom) return alert("Pehle stranger se connect hone dein!");
+      if (!isMatched || !currentRoom) return alert("Pehle kisi stranger se connect hone dein!");
       document.getElementById('media-file-input').click();
     }
 
-    function handleFileChosen(event) {
-      const file = event.target.files[0];
+    function handleFileChosen(e) {
+      const file = e.target.files[0];
       if (!file) return;
 
-      if (file.type.startsWith('video') && file.size > 1.5 * 1024 * 1024) {
-        return alert("Video ka size 1.5MB se chhota hona chahiye taaki instant send ho sake.");
+      if (file.type.startsWith('video') && file.size > 2 * 1024 * 1024) {
+        return alert("Video 2MB se chhoti honi chahiye.");
       }
 
+      const reader = new FileReader();
       if (file.type.startsWith('image')) {
-        // Fast image compression to ~50KB
-        const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function(evt) {
           const img = new Image();
           img.onload = function() {
             const canvas = document.createElement('canvas');
             const max = 700;
             let w = img.width, h = img.height;
             if (w > h && w > max) { h = Math.round(h * max / w); w = max; }
-            else if (h > max) { w = Math.round(w * max / h); h = max; }
+            else if (h > max) { h = Math.round(h * max / h); h = max; }
             canvas.width = w; canvas.height = h;
             canvas.getContext('2d').drawImage(img, 0, 0, w, h);
             pendingMediaData = { type: 'image', dataUrl: canvas.toDataURL('image/jpeg', 0.6) };
             document.getElementById('media-modal').style.display = 'flex';
           };
-          img.src = e.target.result;
+          img.src = evt.target.result;
         };
-        reader.readAsDataURL(file);
       } else {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          pendingMediaData = { type: 'video', dataUrl: e.target.result };
+        reader.onload = function(evt) {
+          pendingMediaData = { type: 'video', dataUrl: evt.target.result };
           document.getElementById('media-modal').style.display = 'flex';
         };
-        reader.readAsDataURL(file);
       }
-      event.target.value = "";
+      reader.readAsDataURL(file);
+      e.target.value = "";
     }
 
     function selectTimer(val, btn) {
@@ -367,7 +392,7 @@
 
       const mediaId = "media_" + Date.now();
       appendSecureMediaButton(mediaId, pendingMediaData, selectedTimerValue, 'me');
-      
+
       client.publish(currentRoom, JSON.stringify({
         type: "media",
         mediaId: mediaId,
@@ -387,54 +412,42 @@
 
       const btn = document.createElement('button');
       btn.className = "secure-media-btn";
-      btn.type = "button";
       btn.innerHTML = `🔒 View ${mediaObj.type.toUpperCase()} (${timerType === 'once' ? '1-View' : timerType + 's'})`;
-      
-      btn.onclick = () => {
-        openSecureViewer(id, mediaObj, timerType);
-      };
+      btn.onclick = () => openSecureViewer(id, mediaObj, timerType);
 
       div.appendChild(btn);
       box.appendChild(div);
       box.scrollTop = box.scrollHeight;
     }
 
-    function openSecureViewer(msgElementId, mediaObj, timerType) {
+    function openSecureViewer(msgId, mediaObj, timerType) {
       const viewer = document.getElementById('media-viewer');
       const slot = document.getElementById('viewer-media-slot');
       const tag = document.getElementById('countdown-tag');
       slot.innerHTML = "";
 
-      let mediaElement;
-      if (mediaObj.type === 'video') {
-        mediaElement = document.createElement('video');
-        mediaElement.src = mediaObj.dataUrl;
-        mediaElement.autoplay = true;
-        mediaElement.playsInline = true;
-      } else {
-        mediaElement = document.createElement('img');
-        mediaElement.src = mediaObj.dataUrl;
-      }
-      
-      slot.appendChild(mediaElement);
+      let el = mediaObj.type === 'video' ? document.createElement('video') : document.createElement('img');
+      el.src = mediaObj.dataUrl;
+      if (mediaObj.type === 'video') { el.autoplay = true; el.playsInline = true; }
+      slot.appendChild(el);
       viewer.style.display = 'flex';
 
       if (timerType !== 'once') {
-        let timeLeft = parseInt(timerType);
-        tag.innerText = `⏱️ Burning in ${timeLeft}s`;
+        let left = parseInt(timerType);
+        tag.innerText = `⏱️ Burning in ${left}s`;
         activeMediaTimeout = setInterval(() => {
-          timeLeft--;
-          tag.innerText = `⏱️ Burning in ${timeLeft}s`;
-          if (timeLeft <= 0) {
+          left--;
+          tag.innerText = `⏱️ Burning in ${left}s`;
+          if (left <= 0) {
             clearInterval(activeMediaTimeout);
-            destroyMedia(msgElementId);
+            destroyMedia(msgId);
           }
         }, 1000);
       } else {
-        tag.innerText = `👁️ View Once (Closes on exit)`;
+        tag.innerText = "👁️ View Once";
       }
 
-      viewer.dataset.activeMsgId = msgElementId;
+      viewer.dataset.activeMsgId = msgId;
     }
 
     function closeMediaViewer() {
@@ -446,54 +459,195 @@
       document.getElementById('viewer-media-slot').innerHTML = "";
     }
 
-    function destroyMedia(msgElementId) {
-      const elem = document.getElementById(msgElementId);
+    function destroyMedia(msgId) {
+      const elem = document.getElementById(msgId);
       if (elem) {
         elem.innerHTML = "<i>💥 Media Expired & Destroyed</i>";
-        elem.style.opacity = "0.45";
+        elem.style.opacity = "0.4";
       }
       const viewer = document.getElementById('media-viewer');
       viewer.style.display = 'none';
       document.getElementById('viewer-media-slot').innerHTML = "";
     }
 
-    // Auto-destroy media if screenshot/recorder gesture triggers blur
+    // Anti-screenshot & Visibility Defense
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         const viewer = document.getElementById('media-viewer');
-        if (viewer.style.display === 'flex') {
-          closeMediaViewer();
-        }
+        if (viewer.style.display === 'flex') closeMediaViewer();
       }
     });
 
-    // Emojis Drawer
-    const emojiData = {
-      funny: ["😂", "🤣", "💀", "😜", "🤡", "😏", "🤪", "👻"],
-      romantic: ["❤️", "😍", "😘", "💖", "🥰", "🙈", "🌹", "✨"],
-      sad: ["🥺", "😭", "💔", "😢", "😱", "😶", "🤦‍♂️", "😞"]
-    };
+    // Voice Message Recorder
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
 
-    switchEmoji('funny', document.querySelector('.emoji-tab-btn'));
+    async function toggleVoiceRecording() {
+      if (!isMatched || !currentRoom) return alert("Stranger se connect hone dein!");
+      const btn = document.getElementById('voice-record-btn');
 
-    function toggleEmojiDrawer() {
-      const drawer = document.getElementById('emoji-drawer');
-      drawer.style.display = drawer.style.display === 'block' ? 'none' : 'block';
+      if (!isRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64Audio = reader.result;
+              appendVoiceNote(base64Audio, 'me');
+              client.publish(currentRoom, JSON.stringify({ type: "voice_note", audioUrl: base64Audio, senderId: myId }));
+            };
+            reader.readAsDataURL(audioBlob);
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          btn.classList.add('recording');
+        } catch (err) {
+          alert("Microphone permission ki zaroorat hai.");
+        }
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        btn.classList.remove('recording');
+      }
     }
 
-    function switchEmoji(category, btn) {
-      document.querySelectorAll('.emoji-tab-btn').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
-      const container = document.getElementById('emoji-container');
-      container.innerHTML = "";
-      emojiData[category].forEach(emoji => {
-        const span = document.createElement('span');
-        span.innerText = emoji;
-        span.onclick = () => {
-          document.getElementById('text-input').value += emoji;
+    function appendVoiceNote(url, sender) {
+      const box = document.getElementById('chat-box');
+      const div = document.createElement('div');
+      div.className = `msg ${sender}`;
+      div.innerHTML = `🎵 <b>Voice Message:</b><br><audio controls src="${url}" style="max-width:210px; height:32px; margin-top:5px;"></audio>`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // WebRTC Audio & Video Calling Engine
+    let peerConn = null;
+    let localStream = null;
+    let requestedCallType = null;
+
+    const rtcConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+    function startCall(type) {
+      if (!isMatched || !currentRoom) return alert("Pehle stranger se connect hone dein!");
+      requestedCallType = type;
+      appendSystemMessage(`Calling stranger (${type})...`);
+      client.publish(currentRoom, JSON.stringify({ type: "call_req", callType: type, senderId: myId }));
+    }
+
+    function handleIncomingCall(type) {
+      requestedCallType = type;
+      document.getElementById('incoming-call-text').innerText = type === 'video' ? "📹 Video Call Request" : "📞 Voice Call Request";
+      document.getElementById('call-modal').style.display = 'flex';
+    }
+
+    function declineCall() {
+      document.getElementById('call-modal').style.display = 'none';
+      client.publish(currentRoom, JSON.stringify({ type: "call_ans", accepted: false, senderId: myId }));
+    }
+
+    async function acceptCall() {
+      document.getElementById('call-modal').style.display = 'none';
+      client.publish(currentRoom, JSON.stringify({ type: "call_ans", accepted: true, senderId: myId }));
+      initiateWebRTC(false, requestedCallType);
+    }
+
+    function handleCallAnswer(accepted) {
+      if (!accepted) {
+        appendSystemMessage("Stranger ne call decline kar di.");
+      } else {
+        appendSystemMessage("Call accept ho gayi!");
+        initiateWebRTC(true, requestedCallType);
+      }
+    }
+
+    async function initiateWebRTC(isInitiator, type) {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: type === 'video',
+          audio: true
+        });
+
+        document.getElementById('call-container').style.display = 'flex';
+        const localVid = document.getElementById('localVideo');
+        if (type === 'video') {
+          localVid.srcObject = localStream;
+          localVid.style.display = "block";
+        } else {
+          localVid.style.display = "none";
+        }
+
+        peerConn = new RTCPeerConnection(rtcConfig);
+        localStream.getTracks().forEach(track => peerConn.addTrack(track, localStream));
+
+        peerConn.ontrack = e => {
+          if (type === 'video') {
+            document.getElementById('remoteVideo').srcObject = e.streams[0];
+          } else {
+            document.getElementById('remoteAudio').srcObject = e.streams[0];
+          }
         };
-        container.appendChild(span);
-      });
+
+        peerConn.onicecandidate = e => {
+          if (e.candidate) {
+            client.publish(currentRoom, JSON.stringify({
+              type: "webrtc_signal",
+              signal: { candidate: e.candidate },
+              senderId: myId
+            }));
+          }
+        };
+
+        if (isInitiator) {
+          const offer = await peerConn.createOffer();
+          await peerConn.setLocalDescription(offer);
+          client.publish(currentRoom, JSON.stringify({
+            type: "webrtc_signal",
+            signal: { sdp: peerConn.localDescription },
+            senderId: myId
+          }));
+        }
+      } catch (err) {
+        alert("Camera/Mic permission nahi mili.");
+        endCall(true);
+      }
+    }
+
+    async function handleWebRTCSignal(signal) {
+      if (!peerConn) return;
+      if (signal.sdp) {
+        await peerConn.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        if (signal.sdp.type === "offer") {
+          const answer = await peerConn.createAnswer();
+          await peerConn.setLocalDescription(answer);
+          client.publish(currentRoom, JSON.stringify({
+            type: "webrtc_signal",
+            signal: { sdp: peerConn.localDescription },
+            senderId: myId
+          }));
+        }
+      } else if (signal.candidate) {
+        try {
+          await peerConn.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } catch (e) {}
+      }
+    }
+
+    function endCall(sendSignal) {
+      if (sendSignal && currentRoom) {
+        client.publish(currentRoom, JSON.stringify({ type: "call_ended", senderId: myId }));
+      }
+      if (peerConn) { peerConn.close(); peerConn = null; }
+      if (localStream) { localStream.getTracks().forEach(track => track.stop()); localStream = null; }
+      document.getElementById('call-container').style.display = 'none';
+      document.getElementById('call-modal').style.display = 'none';
     }
   </script>
 </body>
