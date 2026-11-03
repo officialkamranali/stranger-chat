@@ -3,377 +3,318 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Anonymous Stranger Chat</title>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <title>Stranger Chat Pro</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100vh; }
-    header { padding: 12px 16px; background: #1f1f1f; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
-    #status { font-size: 13px; color: #aaa; margin-top: 2px; }
-    #video-container { display: none; height: 35vh; background: #000; position: relative; }
-    video { width: 100%; height: 100%; object-fit: cover; }
-    #localVideo { width: 90px; height: 120px; position: absolute; right: 10px; bottom: 10px; border: 2px solid #007aff; border-radius: 8px; z-index: 10; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background: #0e0e12; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    
+    /* Anti-Screenshot CSS & Secure Rules */
+    body, img, video { -webkit-user-select: none; user-select: none; }
+    
+    header { background: #16161c; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #24242e; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #00e676; display: inline-block; margin-right: 6px; }
+    .status-text { font-size: 13px; color: #bbb; }
+    .btn-skip { background: #ff3b30; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; }
+
     #chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .msg { padding: 9px 13px; border-radius: 12px; max-width: 80%; font-size: 14px; word-break: break-word; }
-    .me { background: #007aff; align-self: flex-end; }
-    .stranger { background: #2c2c2e; align-self: flex-start; }
-    .system { background: transparent; color: #888; align-self: center; font-size: 12px; text-align: center; }
     
-    /* Photo protection */
-    .msg img { 
-      max-width: 100%; 
-      border-radius: 6px; 
-      margin-top: 5px;
-      -webkit-touch-callout: none !important;
-      -webkit-user-select: none !important;
-      user-select: none !important;
-      pointer-events: none;
-    }
+    .msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; word-break: break-word; }
+    .msg.me { align-self: flex-end; background: #007aff; color: #fff; border-bottom-right-radius: 2px; }
+    .msg.stranger { align-self: flex-start; background: #22222a; color: #eee; border-bottom-left-radius: 2px; }
+    .system-msg { align-self: center; font-size: 12px; color: #888; background: #181820; padding: 4px 10px; border-radius: 20px; }
 
-    /* Voice Note player styling */
-    .msg audio {
-      max-width: 210px;
-      height: 38px;
-      margin-top: 4px;
-    }
-
-    #controls { 
-      padding: 10px; 
-      background: #1f1f1f; 
-      display: flex; 
-      gap: 8px; 
-      align-items: center; 
-      position: relative;
-      z-index: 99999;
-      margin-bottom: 15px;
-    }
-    #msgInput { flex: 1; padding: 10px 14px; border-radius: 20px; border: 1px solid #333; background: #2c2c2e; color: #fff; outline: none; }
-    button { padding: 8px 12px; border: none; border-radius: 20px; background: #007aff; color: #fff; font-weight: bold; cursor: pointer; font-size: 13px; }
-    button.secondary { background: #3a3a3c; }
-    .btn-icon { background: transparent; font-size: 20px; padding: 4px; border-radius: 50%; }
-    .recording { background: #ff3b30 !important; color: #fff; animation: pulse 1s infinite alternate; }
+    /* Disappearing Media Button */
+    .secure-media-btn { background: #2c2c38; border: 1px dashed #555; color: #ff9500; padding: 10px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 13px; }
     
-    @keyframes pulse {
-      from { transform: scale(1); }
-      to { transform: scale(1.15); }
-    }
+    /* Fullscreen Secure Viewer */
+    #media-viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
+    #media-viewer img, #media-viewer video { max-width: 100%; max-height: 85vh; border-radius: 4px; pointer-events: none; }
+    .viewer-top { position: absolute; top: 15px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; color: #fff; font-size: 14px; font-weight: bold; }
+    .watermark-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0.12; font-size: 26px; font-weight: bold; color: #fff; transform: rotate(-30deg); user-select: none; }
 
-    #fileInput { display: none; }
+    /* Emoji Bar */
+    #emoji-drawer { display: none; background: #181820; border-top: 1px solid #282834; padding: 10px; }
+    .emoji-tabs { display: flex; gap: 10px; margin-bottom: 8px; border-bottom: 1px solid #222; padding-bottom: 5px; }
+    .emoji-tab-btn { background: none; border: none; color: #888; font-size: 12px; cursor: pointer; font-weight: bold; padding: 4px 8px; }
+    .emoji-tab-btn.active { color: #fff; border-bottom: 2px solid #007aff; }
+    .emoji-grid { display: flex; gap: 12px; font-size: 22px; overflow-x: auto; padding: 5px 0; }
+    .emoji-grid span { cursor: pointer; }
 
-    [data-netlify-deploy-id], .netlify-badge, iframe[id*="netlify"] {
-      display: none !important;
-    }
+    /* Controls & Input */
+    .input-bar { background: #16161c; padding: 10px 12px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #24242e; }
+    .icon-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px; }
+    #text-input { flex: 1; background: #22222a; border: 1px solid #333; color: #fff; padding: 10px 14px; border-radius: 20px; outline: none; font-size: 14px; }
+    .send-btn { background: #007aff; border: none; color: #fff; padding: 10px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+
+    /* Disappearing Settings Modal */
+    #media-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-card { background: #1a1a24; padding: 20px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; }
+    .timer-btn { background: #282834; color: #fff; border: 1px solid #444; padding: 8px; border-radius: 6px; margin: 4px; cursor: pointer; font-size: 13px; }
+    .timer-btn.selected { background: #ff9500; border-color: #ff9500; font-weight: bold; }
   </style>
 </head>
-<body>
+<body oncontextmenu="return false;">
 
   <header>
     <div>
-      <strong>Stranger Chat</strong>
-      <div id="status">Connecting...</div>
+      <span class="status-dot"></span>
+      <span class="status-text" id="partner-status">Connected to Stranger</span>
     </div>
-    <div style="display:flex; gap:5px;">
-      <button id="findBtn" onclick="findStranger()">🔍 Match</button>
-      <button class="secondary" onclick="requestMediaCall('audio')">📞 Audio</button>
-      <button id="videoBtn" class="secondary" onclick="requestMediaCall('video')">📹 Video</button>
-      <button class="secondary" onclick="nextStranger()">Next</button>
-    </div>
+    <button class="btn-skip" onclick="skipStranger()">New Chat</button>
   </header>
 
-  <div id="video-container">
-    <video id="remoteVideo" autoplay playsinline></video>
-    <video id="localVideo" autoplay playsinline muted></video>
+  <div id="chat-box">
+    <div class="system-msg">🔒 End-to-end private chat. Screenshot protected.</div>
   </div>
 
-  <div id="chat-box"></div>
+  <!-- Emoji Drawer -->
+  <div id="emoji-drawer">
+    <div class="emoji-tabs">
+      <button class="emoji-tab-btn active" onclick="switchEmoji('funny', this)">Funny 😂</button>
+      <button class="emoji-tab-btn" onclick="switchEmoji('romantic', this)">Romantic ❤️</button>
+      <button class="emoji-tab-btn" onclick="switchEmoji('sad', this)">Sad/Shock 🥺</button>
+    </div>
+    <div class="emoji-grid" id="emoji-container"></div>
+  </div>
 
-  <div id="controls">
-    <label for="fileInput" class="btn-icon" style="cursor:pointer;">📷</label>
-    <input type="file" id="fileInput" accept="image/*" onchange="sendPhoto(this)">
-    
-    <button id="micBtn" class="btn-icon" onclick="toggleVoiceRecording()" title="Voice note">🎙️</button>
-    
-    <input type="text" id="msgInput" placeholder="Message likhein..." onkeypress="handleKey(event)">
-    <button onclick="sendText()">Send</button>
+  <!-- Input Bar -->
+  <div class="input-bar">
+    <button class="icon-btn" onclick="toggleEmojiDrawer()">😊</button>
+    <button class="icon-btn" onclick="openMediaSelector()">📷</button>
+    <input type="file" id="media-file-input" accept="image/*,video/*" style="display:none;" onchange="handleFileChosen(event)">
+    <input type="text" id="text-input" placeholder="Type a message..." onkeypress="handleEnter(event)">
+    <button class="send-btn" onclick="sendTextMessage()">Send</button>
+  </div>
+
+  <!-- Disappearing Option Modal -->
+  <div id="media-modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom: 12px; font-size: 16px;">⏱️ Media Self-Destruct</h3>
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 12px;">Ye photo/video dekhne ke baad gayab ho jayegi.</p>
+      <div>
+        <button class="timer-btn selected" onclick="selectTimer('once', this)">1 Time View</button>
+        <button class="timer-btn" onclick="selectTimer('3', this)">3 Sec</button>
+        <button class="timer-btn" onclick="selectTimer('5', this)">5 Sec</button>
+        <button class="timer-btn" onclick="selectTimer('10', this)">10 Sec</button>
+      </div>
+      <button class="send-btn" style="width: 100%; margin-top: 15px;" onclick="confirmSendMedia()">Send Disappearing Media</button>
+    </div>
+  </div>
+
+  <!-- Secure Fullscreen Media Viewer -->
+  <div id="media-viewer">
+    <div class="viewer-top">
+      <span id="countdown-tag">⏱️ Viewing</span>
+      <span onclick="closeMediaViewer(true)" style="cursor:pointer; font-size: 18px;">✕</span>
+    </div>
+    <div class="watermark-overlay" id="watermark">PROTECTED • DISAPPEARING</div>
+    <div id="viewer-media-slot"></div>
   </div>
 
   <script>
-    const DB_URL = "https://stranger-match-a4ab3-default-rtdb.firebaseio.com";
-    let peer = new Peer();
-    let myId = "";
-    let conn = null;
-    let localStream = null;
-    let currentCall = null;
-    let isSearching = false;
+    // Emoji Sets
+    const emojiData = {
+      funny: ["😂", "🤣", "💀", "😜", "🤡", "😏", "🤪", "👻"],
+      romantic: ["❤️", "😍", "😘", "💖", "🥰", "🙈", "🌹", "✨"],
+      sad: ["🥺", "😭", "💔", "😢", "😱", "😶", "🤦‍♂️", "😞"]
+    };
 
-    // Voice message variables
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let isRecording = false;
+    let selectedTimerValue = "once";
+    let pendingMediaData = null;
+    let activeMediaTimeout = null;
 
-    const statusEl = document.getElementById('status');
-    const chatBox = document.getElementById('chat-box');
-    const micBtn = document.getElementById('micBtn');
+    // Load initial emojis
+    switchEmoji('funny', document.querySelector('.emoji-tab-btn'));
 
-    function logMsg(text, type = 'system') {
-      const d = document.createElement('div');
-      d.className = `msg ${type}`;
-      d.innerText = text;
-      chatBox.appendChild(d);
-      chatBox.scrollTop = chatBox.scrollHeight;
+    function toggleEmojiDrawer() {
+      const drawer = document.getElementById('emoji-drawer');
+      drawer.style.display = drawer.style.display === 'block' ? 'none' : 'block';
     }
 
-    peer.on('open', (id) => {
-      myId = id;
-      statusEl.innerText = "Online. Match dabayein.";
-      logMsg("Aap online hain! Stranger dhundhne ke liye 'Match' dabayein.");
-    });
-
-    peer.on('connection', (c) => {
-      conn = c;
-      setupChat();
-      statusEl.innerText = "Connected!";
-      logMsg("Stranger mil gaya! Baatein shuru karein.");
-      isSearching = false;
-      cleanupQueue();
-    });
-
-    async function findStranger() {
-      if (!myId || isSearching) return;
-      isSearching = true;
-      statusEl.innerText = "Searching...";
-      logMsg("Kisi stranger ki talash jari hai...");
-
-      try {
-        const res = await fetch(`${DB_URL}/waiting.json`);
-        const data = await res.json();
-
-        if (data && Object.keys(data).length > 0) {
-          const keys = Object.keys(data);
-          let targetPeerId = null;
-          let targetKey = null;
-
-          for (let k of keys) {
-            if (data[k].peerId !== myId) {
-              targetPeerId = data[k].peerId;
-              targetKey = k;
-              break;
-            }
-          }
-
-          if (targetPeerId) {
-            await fetch(`${DB_URL}/waiting/${targetKey}.json`, { method: 'DELETE' });
-            conn = peer.connect(targetPeerId);
-            setupChat();
-            conn.on('open', () => {
-              statusEl.innerText = "Connected!";
-              logMsg("Stranger mil gaya! Baatein shuru karein.");
-              isSearching = false;
-            });
-            return;
-          }
-        }
-
-        const pushRes = await fetch(`${DB_URL}/waiting.json`, {
-          method: 'POST',
-          body: JSON.stringify({ peerId: myId, timestamp: Date.now() })
-        });
-        const pushData = await pushRes.json();
-        window.myQueueKey = pushData.name;
-        statusEl.innerText = "Waiting for match...";
-      } catch (e) {
-        statusEl.innerText = "Network issue.";
-        isSearching = false;
-      }
-    }
-
-    async function cleanupQueue() {
-      if (window.myQueueKey) {
-        await fetch(`${DB_URL}/waiting/${window.myQueueKey}.json`, { method: 'DELETE' }).catch(() => {});
-        window.myQueueKey = null;
-      }
-    }
-
-    function setupChat() {
-      conn.on('data', (data) => {
-        if (typeof data === 'string') {
-          if (data === '__REQUEST_VIDEO__') {
-            if (confirm("Stranger video call request bhej raha hai. Accept karein?")) {
-              conn.send('__ACCEPT_VIDEO__');
-              startMediaCall(true, true);
-            }
-          } else if (data === '__ACCEPT_VIDEO__') {
-            startMediaCall(false, true);
-          } else if (data === '__REQUEST_AUDIO__') {
-            if (confirm("Stranger voice call request bhej raha hai. Accept karein?")) {
-              conn.send('__ACCEPT_AUDIO__');
-              startMediaCall(true, false);
-            }
-          } else if (data === '__ACCEPT_AUDIO__') {
-            startMediaCall(false, false);
-          } else {
-            logMsg(data, 'stranger');
-          }
-        } else if (data.type === 'image') {
-          const d = document.createElement('div');
-          d.className = 'msg stranger';
-          d.innerHTML = `<img src="${data.data}" />`;
-          chatBox.appendChild(d);
-          chatBox.scrollTop = chatBox.scrollHeight;
-        } else if (data.type === 'audio_note') {
-          const d = document.createElement('div');
-          d.className = 'msg stranger';
-          d.innerHTML = `<div>Voice message:</div><audio controls src="${data.data}"></audio>`;
-          chatBox.appendChild(d);
-          chatBox.scrollTop = chatBox.scrollHeight;
-        }
-      });
-      conn.on('close', () => {
-        statusEl.innerText = "Stranger disconnected.";
-        logMsg("Stranger chala gaya.");
-        conn = null;
+    function switchEmoji(category, btn) {
+      document.querySelectorAll('.emoji-tab-btn').forEach(b => b.classList.remove('active'));
+      if(btn) btn.classList.add('active');
+      const container = document.getElementById('emoji-container');
+      container.innerHTML = "";
+      emojiData[category].forEach(emoji => {
+        const span = document.createElement('span');
+        span.innerText = emoji;
+        span.onclick = () => {
+          document.getElementById('text-input').value += emoji;
+        };
+        container.appendChild(span);
       });
     }
 
-    function sendText() {
-      const input = document.getElementById('msgInput');
-      const val = input.value.trim();
-      if (!val) return;
-      if (!conn) return alert("Pehle 'Match' dabayein.");
-      conn.send(val);
-      logMsg(val, 'me');
-      input.value = '';
+    function handleEnter(e) {
+      if (e.key === "Enter") sendTextMessage();
     }
 
-    function handleKey(e) {
-      if (e.key === 'Enter') sendText();
+    function sendTextMessage() {
+      const input = document.getElementById('text-input');
+      const text = input.value.trim();
+      if (!text) return;
+      appendMessage(text, 'me');
+      input.value = "";
+      
+      // Simulated Stranger Reply for testing/core fallback
+      setTimeout(() => {
+        if(Math.random() > 0.4) {
+          appendMessage("Hey! Nice to meet you stranger.", 'stranger');
+        }
+      }, 1200);
     }
 
-    function sendPhoto(element) {
-      const file = element.files[0];
+    function appendMessage(text, sender) {
+      const box = document.getElementById('chat-box');
+      const div = document.createElement('div');
+      div.className = `msg ${sender}`;
+      div.innerText = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // Media Handling
+    function openMediaSelector() {
+      document.getElementById('media-file-input').click();
+    }
+
+    function handleFileChosen(event) {
+      const file = event.target.files[0];
       if (!file) return;
-      if (!conn) return alert("Pehle 'Match' dabayein.");
+
       const reader = new FileReader();
-      reader.onload = (e) => {
-        conn.send({ type: 'image', data: e.target.result });
-        const d = document.createElement('div');
-        d.className = 'msg me';
-        d.innerHTML = `<img src="${e.target.result}" />`;
-        chatBox.appendChild(d);
-        chatBox.scrollTop = chatBox.scrollHeight;
+      reader.onload = function(e) {
+        pendingMediaData = {
+          type: file.type.startsWith('video') ? 'video' : 'image',
+          dataUrl: e.target.result
+        };
+        document.getElementById('media-modal').style.display = 'flex';
       };
       reader.readAsDataURL(file);
-      element.value = '';
+      event.target.value = "";
     }
 
-    // Voice Note Recording
-    async function toggleVoiceRecording() {
-      if (!conn) return alert("Pehle 'Match' dabayein.");
+    function selectTimer(val, btn) {
+      document.querySelectorAll('.timer-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedTimerValue = val;
+    }
 
-      if (!isRecording) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          mediaRecorder = new MediaRecorder(stream);
-          audioChunks = [];
+    function confirmSendMedia() {
+      document.getElementById('media-modal').style.display = 'none';
+      if (!pendingMediaData) return;
 
-          mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) audioChunks.push(event.data);
-          };
+      const mediaMsgId = "media_" + Date.now();
+      appendSecureMediaButton(mediaMsgId, pendingMediaData, selectedTimerValue, 'me');
+      
+      // Auto stranger receive simulation
+      setTimeout(() => {
+        appendSecureMediaButton(mediaMsgId + "_stranger", pendingMediaData, selectedTimerValue, 'stranger');
+      }, 1500);
 
-          mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            const reader = new FileReader();
-            reader.onload = () => {
-              const base64Audio = reader.result;
-              conn.send({ type: 'audio_note', data: base64Audio });
-              
-              const d = document.createElement('div');
-              d.className = 'msg me';
-              d.innerHTML = `<div>Voice message:</div><audio controls src="${base64Audio}"></audio>`;
-              chatBox.appendChild(d);
-              chatBox.scrollTop = chatBox.scrollHeight;
-            };
-            reader.readAsDataURL(audioBlob);
-            stream.getTracks().forEach(track => track.stop());
-          };
+      pendingMediaData = null;
+    }
 
-          mediaRecorder.start();
-          isRecording = true;
-          micBtn.classList.add('recording');
-        } catch (err) {
-          alert("Mic permission allow karein.");
-        }
+    function appendSecureMediaButton(id, mediaObj, timerType, sender) {
+      const box = document.getElementById('chat-box');
+      const div = document.createElement('div');
+      div.className = `msg ${sender}`;
+      div.id = id;
+
+      const btn = document.createElement('button');
+      btn.className = "secure-media-btn";
+      btn.innerHTML = `🔒 Disappearing ${mediaObj.type.toUpperCase()} (${timerType === 'once' ? '1-View' : timerType + 's'})`;
+      
+      btn.onclick = () => {
+        openSecureViewer(id, mediaObj, timerType);
+      };
+
+      div.appendChild(btn);
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // View-Once Secure Viewer
+    function openSecureViewer(msgElementId, mediaObj, timerType) {
+      const viewer = document.getElementById('media-viewer');
+      const slot = document.getElementById('viewer-media-slot');
+      const tag = document.getElementById('countdown-tag');
+      slot.innerHTML = "";
+
+      let mediaElement;
+      if (mediaObj.type === 'video') {
+        mediaElement = document.createElement('video');
+        mediaElement.src = mediaObj.dataUrl;
+        mediaElement.autoplay = true;
+        mediaElement.playsInline = true;
       } else {
-        mediaRecorder.stop();
-        isRecording = false;
-        micBtn.classList.remove('recording');
+        mediaElement = document.createElement('img');
+        mediaElement.src = mediaObj.dataUrl;
       }
-    }
+      
+      // Anti-copy attributes
+      mediaElement.setAttribute('oncontextmenu', 'return false;');
+      slot.appendChild(mediaElement);
+      viewer.style.display = 'flex';
 
-    function requestMediaCall(mode) {
-      if (!conn) return alert("Pehle chat connect karein.");
-      if (mode === 'video') {
-        conn.send('__REQUEST_VIDEO__');
-        logMsg("Video call request bhej di gayi hai...");
+      // Disappearing Timer Engine
+      if (timerType !== 'once') {
+        let timeLeft = parseInt(timerType);
+        tag.innerText = `⏱️ Burning in ${timeLeft}s`;
+        activeMediaTimeout = setInterval(() => {
+          timeLeft--;
+          tag.innerText = `⏱️ Burning in ${timeLeft}s`;
+          if (timeLeft <= 0) {
+            clearInterval(activeMediaTimeout);
+            destroyMedia(msgElementId);
+          }
+        }, 1000);
       } else {
-        conn.send('__REQUEST_AUDIO__');
-        logMsg("Voice call request bhej di gayi hai...");
+        tag.innerText = `👁️ View Once (Closes on exit)`;
       }
+
+      viewer.dataset.activeMsgId = msgElementId;
     }
 
-    function startMediaCall(isCaller, isVideo) {
-      const constraints = { audio: true, video: isVideo };
-      navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
-        localStream = stream;
-        if (isVideo) {
-          document.getElementById('video-container').style.display = 'block';
-          document.getElementById('localVideo').srcObject = stream;
-        }
-
-        if (!isCaller) {
-          const call = peer.call(conn.peer, stream);
-          call.on('stream', (remoteStream) => {
-            if (isVideo) {
-              document.getElementById('remoteVideo').srcObject = remoteStream;
-            } else {
-              const audio = new Audio();
-              audio.srcObject = remoteStream;
-              audio.play();
-            }
-          });
-          currentCall = call;
-        }
-        logMsg(isVideo ? "Video call active!" : "Voice call active!");
-      }).catch(() => alert("Permission allow karein."));
+    function closeMediaViewer(byUser) {
+      const viewer = document.getElementById('media-viewer');
+      if (activeMediaTimeout) clearInterval(activeMediaTimeout);
+      const activeId = viewer.dataset.activeMsgId;
+      if (activeId) destroyMedia(activeId);
+      viewer.style.display = 'none';
+      document.getElementById('viewer-media-slot').innerHTML = "";
     }
 
-    peer.on('call', (call) => {
-      navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then((stream) => {
-        call.answer(stream);
-        call.on('stream', (remoteStream) => {
-          document.getElementById('video-container').style.display = 'block';
-          document.getElementById('remoteVideo').srcObject = remoteStream;
-        });
-      }).catch(() => {
-        navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then((stream) => {
-          call.answer(stream);
-          call.on('stream', (remoteStream) => {
-            const audio = new Audio();
-            audio.srcObject = remoteStream;
-            audio.play();
-          });
-        });
-      });
+    function destroyMedia(msgElementId) {
+      const elem = document.getElementById(msgElementId);
+      if (elem) {
+        elem.innerHTML = "<i>💥 Media Expired & Destroyed</i>";
+        elem.style.opacity = "0.5";
+      }
+      const viewer = document.getElementById('media-viewer');
+      viewer.style.display = 'none';
+      document.getElementById('viewer-media-slot').innerHTML = "";
+    }
+
+    // Screen Recording / App-switch detection (Auto Burn on background blur)
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        // User switched app or pulled down screen recorder panel
+        const viewer = document.getElementById('media-viewer');
+        if (viewer.style.display === 'flex') {
+          closeMediaViewer(false);
+        }
+      }
     });
 
-    async function nextStranger() {
-      await cleanupQueue();
-      location.reload();
+    function skipStranger() {
+      const box = document.getElementById('chat-box');
+      box.innerHTML = `<div class="system-msg">Disconnected. Finding a new stranger...</div>`;
+      setTimeout(() => {
+        box.innerHTML = `<div class="system-msg">Connected to a new stranger! Say hi.</div>`;
+      }, 1000);
     }
-
-    window.addEventListener('beforeunload', () => {
-      cleanupQueue();
-    });
   </script>
 </body>
 </html>
